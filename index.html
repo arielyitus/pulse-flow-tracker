@@ -333,6 +333,111 @@
         </div>
       </section>
 
+      <!-- FITBIT EDGE / WEARABLE TELEMETRY COMMAND BAR -->
+      <section id="fitbitDashboardPanel" class="glass-card rounded-2xl p-4 sm:p-5 border border-cyan-500/25 space-y-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <i data-lucide="watch" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-extrabold text-white">Fitbit Wearable Telemetry &amp; Live Burn</h2>
+                <span id="fitbitStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                  Not Connected
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400">Steps, Total Burn (TDEE), Active Zone Minutes, Resting HR, HRV, VO2 Max, SpO2, Sleep Stages &amp; Watch Workouts</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center gap-1.5 text-[11px] text-slate-300 bg-slate-900/90 border border-slate-800 px-2.5 py-1.5 rounded-xl cursor-pointer">
+              <input id="fitbitDynamicTdeeCheck" type="checkbox" onchange="toggleFitbitDynamicCalorieTarget()" class="rounded border-slate-700 text-cyan-500" />
+              <span>Adjust Daily Calorie Target from Fitbit Burn</span>
+            </label>
+            <button onclick="syncFitbitDataForSelectedDate(true)" class="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Sync Fitbit</span>
+            </button>
+            <button onclick="openFitbitModal()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 transition">
+              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+              <span>Fitbit Setup / Import</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 6 Wearable Telemetry Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <!-- 1. Steps & Distance -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Daily Steps</span>
+              <i data-lucide="footprints" class="w-3.5 h-3.5 text-emerald-400"></i>
+            </div>
+            <div id="fbDashSteps" class="text-lg font-extrabold text-white font-mono">0</div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden my-1.5">
+              <div id="fbDashStepsBar" class="h-full bg-emerald-400 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div id="fbDashDistance" class="text-[10px] text-slate-400 font-mono">Goal: 10,000 • 0.0 mi</div>
+          </div>
+
+          <!-- 2. Calories Burned (TDEE) & Net Deficit -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Calories Burned</span>
+              <i data-lucide="flame" class="w-3.5 h-3.5 text-amber-400"></i>
+            </div>
+            <div id="fbDashCalOut" class="text-lg font-extrabold text-white font-mono">0 <span class="text-xs font-normal text-slate-400">kcal</span></div>
+            <div id="fbDashActiveCal" class="text-[10px] text-amber-300 font-mono mt-1">Active burn: 0 kcal</div>
+            <div id="fbDashNetCal" class="text-[10px] text-emerald-400 font-mono">Net balance: -- kcal</div>
+          </div>
+
+          <!-- 3. Active Zone Minutes & HR Zones -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-cyan-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Active Zone Min</span>
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-cyan-400"></i>
+            </div>
+            <div id="fbDashAzm" class="text-lg font-extrabold text-white font-mono">0 <span class="text-xs font-normal text-slate-400">min</span></div>
+            <div id="fbDashHrZones" class="text-[10px] text-slate-400 font-mono mt-1 leading-tight">Fat: 0m • Card: 0m • Peak: 0m</div>
+          </div>
+
+          <!-- 4. Resting HR, HRV & Cardio Fitness -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Resting HR &amp; HRV</span>
+              <i data-lucide="heart-pulse" class="w-3.5 h-3.5 text-rose-400"></i>
+            </div>
+            <div id="fbDashRhr" class="text-lg font-extrabold text-white font-mono">-- <span class="text-xs font-normal text-slate-400">bpm</span></div>
+            <div id="fbDashHrv" class="text-[10px] text-sky-400 font-mono mt-1">HRV: -- ms</div>
+            <div id="fbDashVo2" class="text-[10px] text-slate-400 font-mono">VO2: -- • SpO2: --%</div>
+          </div>
+
+          <!-- 5. Sleep Duration & Stages -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-indigo-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Recovery Sleep</span>
+              <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i>
+            </div>
+            <div id="fbDashSleepHrs" class="text-lg font-extrabold text-white font-mono">0.0 <span class="text-xs font-normal text-slate-400">hrs</span></div>
+            <div id="fbDashSleepEff" class="text-[10px] text-indigo-300 font-mono mt-1">Efficiency: --%</div>
+            <div id="fbDashSleepStages" class="text-[10px] text-slate-400 font-mono">Deep: 0m • REM: 0m</div>
+          </div>
+
+          <!-- 6. Watch Workouts & Readiness Suggestion -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+            <div class="flex items-center justify-between text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-0.5">
+              <span>Watch Workouts</span>
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-400"></i>
+            </div>
+            <div id="fbDashWorkoutsCount" class="text-sm font-extrabold text-white truncate">No Watch Runs</div>
+            <div id="fbDashWorkoutsSub" class="text-[10px] text-slate-400 font-mono mt-1 truncate">Auto-imports to Workouts</div>
+            <div id="fbDashReadinessBadge" class="text-[10px] text-emerald-400 font-bold mt-0.5">Readiness: --</div>
+          </div>
+        </div>
+      </section>
+
       <!-- MAIN GRID: HABIT MATRIX (LEFT) + WEEKLY STREAK & STRESS CHART (RIGHT) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -1559,6 +1664,153 @@
   </div>
 
   <!-- ================================================================= -->
+  <!-- MODAL: FITBIT CLOUD OAUTH 2.0 SYNC, MANUAL ENTRY & CSV/JSON IMPORT-->
+  <!-- ================================================================= -->
+  <div id="fitbitModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-2xl w-full p-5 border border-cyan-500/30 space-y-4 max-h-[92vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="watch" class="w-5 h-5 text-cyan-400"></i>
+            Fitbit Wearable Telemetry &amp; Cloud Sync Setup
+          </h3>
+          <p class="text-xs text-slate-400">Pull Steps, Calories Burned (TDEE), Active Zone Minutes, Resting HR, HRV, VO2 Max, SpO2, Sleep Stages &amp; Watch Workouts</p>
+        </div>
+        <button onclick="closeFitbitModal()" class="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 1. Automatic Fitbit Web API OAuth 2.0 PKCE Connection -->
+      <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-3 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Automatic Cloud Sync • OAuth 2.0 PKCE</span>
+            <h4 class="text-sm font-bold text-white mt-1">1-Tap Fitbit Web API Connection</h4>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="syncFitbitLast7Days()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold">
+              Sync Last 7 Days
+            </button>
+            <button onclick="disconnectFitbit()" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-800 text-[11px] font-semibold">
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="text-[11px] text-slate-400 font-semibold block mb-1">Fitbit OAuth 2.0 Client ID *</label>
+            <input id="fitbitClientIdInput" type="text" placeholder="e.g. 23ABCD" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500" />
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 font-semibold block mb-1">Client Secret (Optional if Client/PKCE)</label>
+            <input id="fitbitClientSecretInput" type="password" placeholder="Optional for Personal/Server apps" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <span id="fitbitModalStatusText" class="text-[11px] text-slate-400 font-mono">Paste your Fitbit Client ID above and tap Authorize &amp; Connect Fitbit</span>
+          <button onclick="startFitbitOAuthFlow()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition shadow-md">
+            <i data-lucide="link" class="w-3.5 h-3.5"></i>
+            Authorize &amp; Connect Fitbit
+          </button>
+        </div>
+
+        <!-- 60-Second Fitbit Developer App Instructions -->
+        <details class="bg-slate-900/90 rounded-xl p-3 border border-slate-800" open>
+          <summary class="cursor-pointer font-bold text-amber-300 flex items-center justify-between">
+            <span>📋 How to get your free Fitbit Client ID in 60 seconds (`dev.fitbit.com/apps/new`)</span>
+            <span class="text-[10px] text-slate-400 font-normal">Click to toggle</span>
+          </summary>
+          <div class="mt-2.5 space-y-2 text-[11px] text-slate-300 border-t border-slate-800 pt-2.5">
+            <ol class="list-decimal list-inside space-y-1.5">
+              <li>Open <a href="https://dev.fitbit.com/apps/new" target="_blank" rel="noopener" class="text-cyan-400 underline font-semibold">dev.fitbit.com/apps/new</a> and sign in with your Fitbit / Google account.</li>
+              <li>Fill in any name (e.g. <code>Pulse Flow Tracker</code>) and website URL (<code>https://arielyitus.github.io/pulse-flow-tracker/</code>).</li>
+              <li>Set <strong>OAuth 2.0 Application Type</strong> to <strong>Client</strong> (or <strong>Personal</strong>) and <strong>Default Access Type</strong> to <strong>Read Only</strong> (or <strong>Read &amp; Write</strong>).</li>
+              <li>For <strong>Redirect URL</strong>, paste this exact URL:
+                <div class="flex items-center gap-2 mt-1">
+                  <input id="fitbitRedirectUriDisplay" type="text" readonly value="https://arielyitus.github.io/pulse-flow-tracker/" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-[11px] text-emerald-300 font-mono" />
+                  <button onclick="copyFitbitRedirectUri()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold">Copy URL</button>
+                </div>
+              </li>
+              <li>Click <strong>Save</strong>, copy the 6-character <strong>OAuth 2.0 Client ID</strong>, paste it above, and click <strong>Authorize &amp; Connect Fitbit</strong>!</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
+      <!-- 2. Quick Manual Watch Entry (Edit or Log Today's Wearable Telemetry Directly) -->
+      <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+        <div class="flex items-center justify-between">
+          <div>
+            <strong class="text-white text-sm block">Quick Watch Telemetry Entry (<span id="fitbitManualDateLabel">Today</span>)</strong>
+            <span class="text-slate-400 text-[11px]">Type or edit today's numbers directly from your watch screen</span>
+          </div>
+          <button onclick="saveManualFitbitEntry()" class="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs">
+            Save Watch Metrics
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div>
+            <label class="text-[10px] uppercase text-slate-400 font-bold block mb-1">Steps</label>
+            <input id="fbInSteps" type="number" min="0" placeholder="10500" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-amber-400 font-bold block mb-1">Calories Burned</label>
+            <input id="fbInCalOut" type="number" min="0" placeholder="2580" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-cyan-400 font-bold block mb-1">Active Zone Min</label>
+            <input id="fbInAzm" type="number" min="0" placeholder="48" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-rose-400 font-bold block mb-1">Resting HR (bpm)</label>
+            <input id="fbInRhr" type="number" min="30" max="140" placeholder="58" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-sky-400 font-bold block mb-1">HRV (ms)</label>
+            <input id="fbInHrv" type="number" min="0" placeholder="46" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-indigo-400 font-bold block mb-1">Sleep (Hours)</label>
+            <input id="fbInSleepHrs" type="number" min="0" max="16" step="0.1" placeholder="7.8" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-indigo-300 font-bold block mb-1">Deep Sleep (min)</label>
+            <input id="fbInDeepMin" type="number" min="0" placeholder="85" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-purple-300 font-bold block mb-1">REM Sleep (min)</label>
+            <input id="fbInRemMin" type="number" min="0" placeholder="95" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-emerald-400 font-bold block mb-1">VO2 Max Score</label>
+            <input id="fbInVo2" type="number" min="10" max="90" step="0.5" placeholder="44" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+          <div>
+            <label class="text-[10px] uppercase text-teal-400 font-bold block mb-1">SpO2 (%)</label>
+            <input id="fbInSpo2" type="number" min="80" max="100" step="0.5" placeholder="97.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. CSV / JSON File Import (Fitbit / Garmin Export Files) -->
+      <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div>
+          <strong class="text-white block">Import Fitbit or Garmin Export File (`.csv` or `.json`)</strong>
+          <span class="text-slate-400 text-[11px]">Bulk-import historical steps, calories burned, sleep, weight, and resting heart rate logs.</span>
+        </div>
+        <label class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold cursor-pointer shrink-0">
+          <span>Import CSV / JSON</span>
+          <input type="file" accept=".csv,.json" onchange="importFitbitFile(event)" class="hidden" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
   <!-- APPLICATION JAVASCRIPT                                            -->
   <!-- ================================================================= -->
   <script>
@@ -2184,7 +2436,9 @@
       customFoods: [], // User-created or barcode-saved foods [{ id, name, category, serving, cal, prot, carb, fat, barcode }]
       nutritionLogs: {}, // { 'YYYY-MM-DD': { breakfast: [{ id, name, serving, servings, cal, prot, carb, fat }], preworkout: [], lunch: [], dinner: [], snacks: [] } }
       waterLogs: {}, // { 'YYYY-MM-DD': 2.5 } (liters)
-      nutritionTargets: { cal: 1900, prot: 180, carb: 165, fat: 58, water: 3.5 }
+      nutritionTargets: { cal: 1900, prot: 180, carb: 165, fat: 58, water: 3.5 },
+      fitbitLogs: {}, // { 'YYYY-MM-DD': { steps, distanceMiles, floors, caloriesOut, activityCalories, activeZoneMin, fatBurnMin, cardioMin, peakMin, rhr, hrv, vo2Max, spo2, sleepHours, sleepEff, deepMin, remMin, lightMin, activities: [] } }
+      fitbitDynamicTdee: false
     };
 
     // Temporary UI state for current journal entry, quantitative workout set logger & barcode scanner
@@ -2236,6 +2490,8 @@
           if (!state.nutritionTargets || typeof state.nutritionTargets !== 'object') {
             state.nutritionTargets = { cal: 1900, prot: 180, carb: 165, fat: 58, water: 3.5 };
           }
+          if (!state.fitbitLogs || typeof state.fitbitLogs !== 'object') state.fitbitLogs = {};
+          if (typeof state.fitbitDynamicTdee !== 'boolean') state.fitbitDynamicTdee = false;
         } else {
           const today = state.selectedDate;
           state.weightLogs[today] = 198.0;
@@ -5098,6 +5354,31 @@
             totalDurationMin: isLiftDay ? 30 : 45
           });
         }
+
+        // Seed realistic Fitbit wearable telemetry for each day
+        if (!state.fitbitLogs) state.fitbitLogs = {};
+        const isCourtDay = dow === 'Mon' || dow === 'Wed' || dow === 'Fri';
+        state.fitbitLogs[d] = {
+          steps: isCourtDay ? (11800 + Math.floor(Math.random() * 2200)) : (8400 + Math.floor(Math.random() * 1800)),
+          distanceMiles: isCourtDay ? 5.6 : 3.9,
+          floors: isCourtDay ? 14 : 9,
+          caloriesOut: isCourtDay ? (2680 + Math.floor(Math.random() * 180)) : (2390 + Math.floor(Math.random() * 140)),
+          activityCalories: isCourtDay ? 1080 : 760,
+          activeZoneMin: isCourtDay ? 64 : 38,
+          fatBurnMin: isCourtDay ? 36 : 24,
+          cardioMin: isCourtDay ? 22 : 12,
+          peakMin: isCourtDay ? 6 : 2,
+          rhr: Math.max(54, Math.round(64 - (idx * 0.14))),
+          hrv: Math.round(42 + (idx * 0.25)),
+          vo2Max: +(41.5 + (idx * 0.06)).toFixed(1),
+          spo2: 97.5,
+          sleepHours: +(7.6 + (Math.random() * 0.7)).toFixed(1),
+          sleepEff: 91,
+          deepMin: 84,
+          remMin: 98,
+          lightMin: 275,
+          activities: isCourtDay ? [{ name: 'Basketball Shootaround & Run', durationMin: 45, calories: 490 }] : []
+        };
       });
 
       state.currentWeight = state.weightLogs[state.selectedDate] || 186.0;
@@ -5107,6 +5388,665 @@
       refreshAllUI();
       renderHistoricsCharts();
       renderHeatmap();
+    }
+
+    // =================================================================
+    // FITBIT WEB API OAUTH 2.0 PKCE + FULL TELEMETRY SYNC & CSV IMPORT
+    // =================================================================
+    const FITBIT_AUTH_KEY = 'pulse_flow_fitbit_auth_v1';
+    const FITBIT_PKCE_VERIFIER_KEY = 'pulse_flow_fitbit_pkce_v1';
+    let fitbitAuth = {
+      clientId: '',
+      clientSecret: '',
+      accessToken: '',
+      refreshToken: '',
+      expiresAt: 0,
+      userId: ''
+    };
+
+    function getFitbitRedirectUri() {
+      if (location.protocol === 'http:' || location.protocol === 'https:') {
+        return location.origin + location.pathname;
+      }
+      return 'https://arielyitus.github.io/pulse-flow-tracker/';
+    }
+
+    function openFitbitModal() {
+      const modal = document.getElementById('fitbitModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      const redirectDisplay = document.getElementById('fitbitRedirectUriDisplay');
+      if (redirectDisplay) redirectDisplay.value = getFitbitRedirectUri();
+
+      const cidIn = document.getElementById('fitbitClientIdInput');
+      const secIn = document.getElementById('fitbitClientSecretInput');
+      if (cidIn && fitbitAuth.clientId) cidIn.value = fitbitAuth.clientId;
+      if (secIn && fitbitAuth.clientSecret) secIn.value = fitbitAuth.clientSecret;
+
+      // Populate manual inputs with today's values if present
+      const dateStr = state.selectedDate;
+      const dateLbl = document.getElementById('fitbitManualDateLabel');
+      if (dateLbl) dateLbl.textContent = dateStr;
+      const dayFb = (state.fitbitLogs && state.fitbitLogs[dateStr]) || {};
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val !== undefined && val !== null ? val : '';
+      };
+      setVal('fbInSteps', dayFb.steps);
+      setVal('fbInCalOut', dayFb.caloriesOut);
+      setVal('fbInAzm', dayFb.activeZoneMin);
+      setVal('fbInRhr', dayFb.rhr);
+      setVal('fbInHrv', dayFb.hrv);
+      setVal('fbInSleepHrs', dayFb.sleepHours);
+      setVal('fbInDeepMin', dayFb.deepMin);
+      setVal('fbInRemMin', dayFb.remMin);
+      setVal('fbInVo2', dayFb.vo2Max);
+      setVal('fbInSpo2', dayFb.spo2);
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeFitbitModal() {
+      const modal = document.getElementById('fitbitModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function copyFitbitRedirectUri() {
+      const uri = getFitbitRedirectUri();
+      navigator.clipboard.writeText(uri).then(() => {
+        const st = document.getElementById('fitbitModalStatusText');
+        if (st) st.textContent = '✓ Copied Redirect URL to clipboard!';
+      });
+    }
+
+    // Generate PKCE code_verifier & S256 code_challenge
+    function generateRandomPkceVerifier() {
+      const array = new Uint8Array(32);
+      window.crypto.getRandomValues(array);
+      return btoa(String.fromCharCode.apply(null, Array.from(array)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    async function generatePkceChallengeS256(verifier) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(verifier);
+      const digest = await window.crypto.subtle.digest('SHA-256', data);
+      return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    async function startFitbitOAuthFlow() {
+      const clientId = (document.getElementById('fitbitClientIdInput')?.value || '').trim();
+      const clientSecret = (document.getElementById('fitbitClientSecretInput')?.value || '').trim();
+      if (!clientId) {
+        alert('Please enter your 6-character Fitbit OAuth 2.0 Client ID from dev.fitbit.com/apps/new first.');
+        return;
+      }
+
+      fitbitAuth.clientId = clientId;
+      fitbitAuth.clientSecret = clientSecret;
+      localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+
+      const verifier = generateRandomPkceVerifier();
+      localStorage.setItem(FITBIT_PKCE_VERIFIER_KEY, verifier);
+      const challenge = await generatePkceChallengeS256(verifier);
+      const redirectUri = getFitbitRedirectUri();
+      const scopes = [
+        'activity',
+        'heartrate',
+        'sleep',
+        'weight',
+        'nutrition',
+        'oxygen_saturation',
+        'respiratory_rate',
+        'cardio_fitness',
+        'profile'
+      ].join(' ');
+
+      const authUrl = `https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`;
+      window.location.href = authUrl;
+    }
+
+    async function initFitbitFromStorageAndUrl() {
+      try {
+        const raw = localStorage.getItem(FITBIT_AUTH_KEY);
+        if (raw) {
+          fitbitAuth = { ...fitbitAuth, ...JSON.parse(raw) };
+        }
+      } catch (e) {}
+
+      // Check if Fitbit redirected back with ?code=... or #access_token=...
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get('code');
+
+      if (authCode && fitbitAuth.clientId) {
+        // Clean ?code= from URL bar immediately
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        await exchangeFitbitCodeForToken(authCode);
+      } else if (window.location.hash && window.location.hash.includes('access_token=')) {
+        const hashParams = new URLSearchParams(window.location.hash.slice(1));
+        const token = hashParams.get('access_token');
+        const expiresIn = parseInt(hashParams.get('expires_in') || '28800', 10);
+        if (token) {
+          fitbitAuth.accessToken = token;
+          fitbitAuth.expiresAt = Date.now() + (expiresIn * 1000);
+          localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+          window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+          await syncFitbitLast7Days();
+        }
+      } else if (fitbitAuth.accessToken) {
+        updateFitbitStatusUI(true, 'Connected');
+        // Auto-sync today's Fitbit metrics on startup
+        syncFitbitDataForSelectedDate(false);
+      } else {
+        updateFitbitStatusUI(false);
+      }
+    }
+
+    async function exchangeFitbitCodeForToken(code) {
+      const verifier = localStorage.getItem(FITBIT_PKCE_VERIFIER_KEY) || '';
+      const redirectUri = getFitbitRedirectUri();
+      const body = new URLSearchParams({
+        client_id: fitbitAuth.clientId,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+        code: code,
+        code_verifier: verifier
+      });
+
+      const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      if (fitbitAuth.clientSecret) {
+        headers['Authorization'] = 'Basic ' + btoa(`${fitbitAuth.clientId}:${fitbitAuth.clientSecret}`);
+      }
+
+      try {
+        updateFitbitStatusUI(true, 'Authorizing Fitbit...');
+        const resp = await fetch('https://api.fitbit.com/oauth2/token', {
+          method: 'POST',
+          headers,
+          body: body.toString()
+        });
+        const data = await resp.json();
+        if (data && data.access_token) {
+          fitbitAuth.accessToken = data.access_token;
+          fitbitAuth.refreshToken = data.refresh_token || '';
+          fitbitAuth.userId = data.user_id || '-';
+          fitbitAuth.expiresAt = Date.now() + ((data.expires_in || 28800) * 1000);
+          localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+          await syncFitbitLast7Days();
+        } else {
+          const errMsg = data?.errors?.[0]?.message || 'Token exchange failed';
+          alert('Fitbit Authorization Notice: ' + errMsg + '. If you chose "Server" or "Personal" app type on dev.fitbit.com, also paste your Client Secret in the Fitbit modal.');
+          updateFitbitStatusUI(false);
+        }
+      } catch (e) {
+        console.warn('Fitbit token exchange error:', e);
+        updateFitbitStatusUI(false);
+      }
+    }
+
+    async function ensureValidFitbitAccessToken() {
+      if (!fitbitAuth || !fitbitAuth.accessToken) return null;
+      if (fitbitAuth.expiresAt && Date.now() < fitbitAuth.expiresAt - 60000) {
+        return fitbitAuth.accessToken;
+      }
+      if (!fitbitAuth.refreshToken || !fitbitAuth.clientId) {
+        return fitbitAuth.accessToken;
+      }
+      try {
+        const body = new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: fitbitAuth.refreshToken,
+          client_id: fitbitAuth.clientId
+        });
+        const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        if (fitbitAuth.clientSecret) {
+          headers['Authorization'] = 'Basic ' + btoa(`${fitbitAuth.clientId}:${fitbitAuth.clientSecret}`);
+        }
+        const resp = await fetch('https://api.fitbit.com/oauth2/token', {
+          method: 'POST',
+          headers,
+          body: body.toString()
+        });
+        const data = await resp.json();
+        if (data && data.access_token) {
+          fitbitAuth.accessToken = data.access_token;
+          if (data.refresh_token) fitbitAuth.refreshToken = data.refresh_token;
+          fitbitAuth.expiresAt = Date.now() + ((data.expires_in || 28800) * 1000);
+          localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+          return fitbitAuth.accessToken;
+        }
+      } catch (e) {}
+      return fitbitAuth.accessToken;
+    }
+
+    function disconnectFitbit() {
+      fitbitAuth = { clientId: '', clientSecret: '', accessToken: '', refreshToken: '', expiresAt: 0, userId: '' };
+      localStorage.removeItem(FITBIT_AUTH_KEY);
+      updateFitbitStatusUI(false);
+      refreshAllUI();
+    }
+
+    function updateFitbitStatusUI(connected, labelText) {
+      const badge = document.getElementById('fitbitStatusBadge');
+      const modalSt = document.getElementById('fitbitModalStatusText');
+      if (badge) {
+        if (connected) {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+          badge.textContent = labelText || 'Fitbit Connected';
+        } else {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700';
+          badge.textContent = 'Not Connected';
+        }
+      }
+      if (modalSt && labelText) {
+        modalSt.textContent = labelText;
+      }
+    }
+
+    async function syncFitbitDataForDate(dateStr, token) {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const fetchJson = async (url) => {
+        try {
+          const r = await fetch(url, { headers });
+          if (!r.ok) return null;
+          return await r.json();
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Fetch Activity, Heart Rate, Sleep, Weight, HRV, VO2 Max & SpO2 in parallel!
+      const [actData, hrData, sleepData, weightData, hrvData, vo2Data, spo2Data] = await Promise.all([
+        fetchJson(`https://api.fitbit.com/1/user/-/activities/date/${dateStr}.json`),
+        fetchJson(`https://api.fitbit.com/1/user/-/activities/heart/date/${dateStr}/1d.json`),
+        fetchJson(`https://api.fitbit.com/1.2/user/-/sleep/date/${dateStr}.json`),
+        fetchJson(`https://api.fitbit.com/1/user/-/body/log/weight/date/${dateStr}.json`),
+        fetchJson(`https://api.fitbit.com/1/user/-/hrv/date/${dateStr}.json`),
+        fetchJson(`https://api.fitbit.com/1/user/-/cardioscore/date/${dateStr}.json`),
+        fetchJson(`https://api.fitbit.com/1/user/-/spo2/date/${dateStr}.json`)
+      ]);
+
+      if (!state.fitbitLogs) state.fitbitLogs = {};
+      const existing = state.fitbitLogs[dateStr] || {};
+      const entry = { ...existing };
+
+      // 1. Activity Summary & Watch Workouts
+      if (actData && actData.summary) {
+        const s = actData.summary;
+        entry.steps = s.steps ?? entry.steps ?? 0;
+        entry.caloriesOut = s.caloriesOut ?? entry.caloriesOut ?? 0;
+        entry.activityCalories = s.activityCalories ?? entry.activityCalories ?? 0;
+        entry.floors = s.floors ?? entry.floors ?? 0;
+        entry.activeZoneMin = (s.fairlyActiveMinutes || 0) + (s.veryActiveMinutes || 0);
+        const totalDistObj = (s.distances || []).find(d => d.activity === 'total');
+        if (totalDistObj && totalDistObj.distance !== undefined) {
+          // Fitbit returns km by default unless Accept-Language is en_US; convert or store cleanly
+          entry.distanceMiles = Math.round(parseFloat(totalDistObj.distance) * 0.621371 * 100) / 100;
+        }
+      }
+
+      if (actData && Array.isArray(actData.activities)) {
+        entry.activities = actData.activities.map(a => ({
+          logId: a.logId,
+          name: a.activityName || a.name || 'Fitbit Activity',
+          durationMin: Math.round((a.duration || 0) / 60000),
+          calories: a.calories || 0,
+          averageHeartRate: a.averageHeartRate || null,
+          steps: a.steps || 0
+        }));
+
+        // Auto-import Fitbit logged workouts into state.workoutSessions & check off h3!
+        entry.activities.forEach(act => {
+          const sessionId = 'fb_act_' + (act.logId || (dateStr + '_' + act.name));
+          const alreadyLogged = state.workoutSessions.some(ws => ws.id === sessionId);
+          if (!alreadyLogged && act.durationMin >= 10) {
+            const isCourt = /basketball|court|hoop|shoot/i.test(act.name);
+            state.workoutSessions.unshift({
+              id: sessionId,
+              date: dateStr,
+              routineId: 'Fitbit',
+              routineName: `⌚ Fitbit: ${act.name} (${act.calories} kcal)`,
+              category: isCourt ? 'Court Conditioning' : 'Fitbit Watch Activity',
+              rpe: 7,
+              completedSets: 1,
+              totalVolumeLbs: 0,
+              totalDurationMin: act.durationMin
+            });
+          }
+        });
+        if (entry.activities.length > 0) {
+          if (!state.habitLogs[dateStr]) state.habitLogs[dateStr] = {};
+          state.habitLogs[dateStr]['h3'] = true;
+        }
+      }
+
+      // 2. Heart Rate & HR Zones
+      const hrVal = hrData?.['activities-heart']?.[0]?.value;
+      if (hrVal) {
+        if (hrVal.restingHeartRate) entry.rhr = hrVal.restingHeartRate;
+        const zones = Array.isArray(hrVal.heartRateZones) ? hrVal.heartRateZones : [];
+        const getZoneMin = (zName) => (zones.find(z => (z.name || '').toLowerCase().includes(zName))?.minutes || 0);
+        entry.fatBurnMin = getZoneMin('fat burn');
+        entry.cardioMin = getZoneMin('cardio');
+        entry.peakMin = getZoneMin('peak');
+      }
+
+      // 3. Sleep Duration, Efficiency & Deep/REM Stages
+      if (sleepData && sleepData.summary) {
+        const minsAsleep = sleepData.summary.totalMinutesAsleep || 0;
+        if (minsAsleep > 0) {
+          entry.sleepHours = Math.round((minsAsleep / 60) * 10) / 10;
+          // Auto-check 8+ Hr Recovery Sleep habit (h5) if >= 7.5 hrs
+          if (entry.sleepHours >= 7.5) {
+            if (!state.habitLogs[dateStr]) state.habitLogs[dateStr] = {};
+            state.habitLogs[dateStr]['h5'] = true;
+          }
+        }
+        if (sleepData.summary.stages) {
+          entry.deepMin = sleepData.summary.stages.deep || 0;
+          entry.remMin = sleepData.summary.stages.rem || 0;
+          entry.lightMin = sleepData.summary.stages.light || 0;
+        }
+        const mainSleep = (sleepData.sleep || []).find(s => s.isMainSleep) || (sleepData.sleep || [])[0];
+        if (mainSleep && mainSleep.efficiency) {
+          entry.sleepEff = mainSleep.efficiency;
+        }
+      }
+
+      // 4. Weight Sync (if user has Fitbit Aria scale or logs weight in Fitbit)
+      if (weightData && Array.isArray(weightData.weight) && weightData.weight.length > 0) {
+        const latestW = weightData.weight[weightData.weight.length - 1];
+        if (latestW && latestW.weight) {
+          // Fitbit returns kg by default; if < 115, convert kg to lbs
+          const rawW = parseFloat(latestW.weight);
+          const weightLbs = rawW < 115 ? +(rawW * 2.20462).toFixed(1) : +rawW.toFixed(1);
+          state.weightLogs[dateStr] = weightLbs;
+          if (dateStr === state.selectedDate) state.currentWeight = weightLbs;
+        }
+      }
+
+      // 5. HRV, VO2 Max & SpO2
+      const hrvVal = hrvData?.hrv?.[0]?.value?.dailyRmssd;
+      if (hrvVal) entry.hrv = Math.round(parseFloat(hrvVal));
+
+      const vo2Val = vo2Data?.cardioScore?.[0]?.value?.vo2Max;
+      if (vo2Val) entry.vo2Max = parseFloat(String(vo2Val).split('-')[0]) || entry.vo2Max;
+
+      const spo2Val = spo2Data?.value?.avg;
+      if (spo2Val) entry.spo2 = Math.round(parseFloat(spo2Val) * 10) / 10;
+
+      state.fitbitLogs[dateStr] = entry;
+    }
+
+    async function syncFitbitDataForSelectedDate(isManual) {
+      const token = await ensureValidFitbitAccessToken();
+      if (!token) {
+        if (isManual) openFitbitModal();
+        return;
+      }
+      updateFitbitStatusUI(true, 'Syncing Fitbit...');
+      await syncFitbitDataForDate(state.selectedDate, token);
+      if (state.fitbitDynamicTdee) applyFitbitDynamicCalorieTarget();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      updateFitbitStatusUI(true, `Fitbit Synced (${timeStr})`);
+      saveState();
+      refreshAllUI();
+    }
+
+    async function syncFitbitLast7Days() {
+      const token = await ensureValidFitbitAccessToken();
+      if (!token) {
+        alert('Please enter your Fitbit Client ID and click Authorize & Connect Fitbit first.');
+        return;
+      }
+      updateFitbitStatusUI(true, 'Syncing 7 Days from Fitbit...');
+      const dates = getLastNDates(state.selectedDate, 7);
+      for (const d of dates) {
+        await syncFitbitDataForDate(d, token);
+      }
+      if (state.fitbitDynamicTdee) applyFitbitDynamicCalorieTarget();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      updateFitbitStatusUI(true, `Fitbit 7D Synced (${timeStr})`);
+      saveState();
+      refreshAllUI();
+      closeFitbitModal();
+    }
+
+    function toggleFitbitDynamicCalorieTarget() {
+      const chk = document.getElementById('fitbitDynamicTdeeCheck');
+      state.fitbitDynamicTdee = !!(chk && chk.checked);
+      if (state.fitbitDynamicTdee) {
+        applyFitbitDynamicCalorieTarget();
+      } else {
+        syncMacroTargetsFromCalculator();
+      }
+      saveState();
+      refreshAllUI();
+    }
+
+    function applyFitbitDynamicCalorieTarget() {
+      const dayFb = state.fitbitLogs && state.fitbitLogs[state.selectedDate];
+      if (!dayFb || !dayFb.caloriesOut || dayFb.caloriesOut < 1400) return;
+      const deficitEl = document.getElementById('deficit-range');
+      const deficit = deficitEl ? (parseInt(deficitEl.value, 10) || 550) : 550;
+      const dynamicTargetCal = Math.max(1550, Math.round(dayFb.caloriesOut - deficit));
+      const weightLbs = state.weightLogs[state.selectedDate] || state.currentWeight || 198.0;
+      const weightKg = weightLbs / 2.20462;
+      const protG = Math.round(weightKg * 2.0);
+      const fatG = Math.max(50, Math.round(weightKg * 0.7));
+      const carbG = Math.max(90, Math.round((dynamicTargetCal - (protG * 4) - (fatG * 9)) / 4));
+
+      state.nutritionTargets = {
+        cal: dynamicTargetCal,
+        prot: protG,
+        carb: carbG,
+        fat: fatG,
+        water: 3.5
+      };
+    }
+
+    function saveManualFitbitEntry() {
+      const dateStr = state.selectedDate;
+      if (!state.fitbitLogs) state.fitbitLogs = {};
+      const curr = state.fitbitLogs[dateStr] || {};
+
+      const num = (id, fallback) => {
+        const val = parseFloat(document.getElementById(id)?.value);
+        return isNaN(val) ? fallback : val;
+      };
+
+      const steps = num('fbInSteps', curr.steps || 0);
+      const caloriesOut = num('fbInCalOut', curr.caloriesOut || 0);
+      const activeZoneMin = num('fbInAzm', curr.activeZoneMin || 0);
+      const rhr = num('fbInRhr', curr.rhr || null);
+      const hrv = num('fbInHrv', curr.hrv || null);
+      const sleepHours = num('fbInSleepHrs', curr.sleepHours || 0);
+      const deepMin = num('fbInDeepMin', curr.deepMin || 0);
+      const remMin = num('fbInRemMin', curr.remMin || 0);
+      const vo2Max = num('fbInVo2', curr.vo2Max || null);
+      const spo2 = num('fbInSpo2', curr.spo2 || null);
+
+      state.fitbitLogs[dateStr] = {
+        ...curr,
+        steps: Math.round(steps),
+        distanceMiles: +(steps / 2100).toFixed(2),
+        caloriesOut: Math.round(caloriesOut),
+        activityCalories: curr.activityCalories || Math.round(caloriesOut * 0.38),
+        activeZoneMin: Math.round(activeZoneMin),
+        rhr,
+        hrv,
+        sleepHours: +sleepHours.toFixed(1),
+        deepMin: Math.round(deepMin),
+        remMin: Math.round(remMin),
+        vo2Max,
+        spo2
+      };
+
+      if (sleepHours >= 7.5) {
+        if (!state.habitLogs[dateStr]) state.habitLogs[dateStr] = {};
+        state.habitLogs[dateStr]['h5'] = true;
+      }
+      if (state.fitbitDynamicTdee) applyFitbitDynamicCalorieTarget();
+
+      saveState();
+      refreshAllUI();
+      closeFitbitModal();
+    }
+
+    function importFitbitFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result || '';
+        try {
+          if (file.name.endsWith('.json')) {
+            const parsed = JSON.parse(text);
+            const arr = Array.isArray(parsed) ? parsed : (parsed.activities || parsed.sleep || [parsed]);
+            let count = 0;
+            arr.forEach(item => {
+              const rawDate = (item.dateOfSleep || item.dateTime || item.date || '').slice(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+                if (!state.fitbitLogs[rawDate]) state.fitbitLogs[rawDate] = {};
+                if (item.steps !== undefined) state.fitbitLogs[rawDate].steps = Number(item.steps);
+                if (item.calories !== undefined || item.caloriesOut !== undefined) {
+                  state.fitbitLogs[rawDate].caloriesOut = Number(item.caloriesOut || item.calories);
+                }
+                if (item.minutesAsleep !== undefined) {
+                  state.fitbitLogs[rawDate].sleepHours = +(Number(item.minutesAsleep) / 60).toFixed(1);
+                }
+                count++;
+              }
+            });
+            saveState();
+            refreshAllUI();
+            closeFitbitModal();
+            alert(`Imported ${count} wearable records from JSON!`);
+            return;
+          }
+
+          // Parse Fitbit / Garmin CSV export
+          const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+          let headerIdx = lines.findIndex(l => /date/i.test(l) && (/steps|calories|sleep|weight|resting/i.test(l)));
+          if (headerIdx === -1) headerIdx = 0;
+          const headers = lines[headerIdx].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+
+          let importedDays = 0;
+          for (let i = headerIdx + 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+            if (cols.length < 2) continue;
+            const rawDate = cols[0];
+            const dMatch = rawDate.match(/(\d{4}-\d{2}-\d{2})/);
+            if (!dMatch) continue;
+            const dateStr = dMatch[1];
+            if (!state.fitbitLogs[dateStr]) state.fitbitLogs[dateStr] = {};
+            const entry = state.fitbitLogs[dateStr];
+
+            headers.forEach((h, cIdx) => {
+              const val = parseFloat((cols[cIdx] || '').replace(/,/g, ''));
+              if (isNaN(val)) return;
+              if (h.includes('step')) entry.steps = Math.round(val);
+              else if (h.includes('calories burned') || h === 'calories') entry.caloriesOut = Math.round(val);
+              else if (h.includes('activity calories')) entry.activityCalories = Math.round(val);
+              else if (h.includes('very active') || h.includes('active zone')) entry.activeZoneMin = (entry.activeZoneMin || 0) + Math.round(val);
+              else if (h.includes('resting heart') || h === 'rhr') entry.rhr = Math.round(val);
+              else if (h.includes('minutes asleep')) entry.sleepHours = +(val / 60).toFixed(1);
+              else if (h.includes('sleep') && val <= 16) entry.sleepHours = +val.toFixed(1);
+              else if (h.includes('weight') && val > 80) state.weightLogs[dateStr] = +val.toFixed(1);
+            });
+            importedDays++;
+          }
+
+          saveState();
+          refreshAllUI();
+          closeFitbitModal();
+          alert(`Imported ${importedDays} daily Fitbit/Garmin rows into your tracker!`);
+        } catch (err) {
+          alert('Failed to parse file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderFitbitDashboard() {
+      const dateStr = state.selectedDate;
+      const fb = (state.fitbitLogs && state.fitbitLogs[dateStr]) || {};
+      const nutriTotals = getDayNutritionTotals(dateStr);
+
+      const dynCheck = document.getElementById('fitbitDynamicTdeeCheck');
+      if (dynCheck) dynCheck.checked = !!state.fitbitDynamicTdee;
+
+      const setTxt = (id, htmlOrTxt, isHtml = false) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (isHtml) el.innerHTML = htmlOrTxt;
+        else el.textContent = htmlOrTxt;
+      };
+
+      const steps = fb.steps || 0;
+      const stepPct = Math.min(100, Math.round((steps / 10000) * 100));
+      const distMi = fb.distanceMiles !== undefined ? fb.distanceMiles : +(steps / 2100).toFixed(1);
+      setTxt('fbDashSteps', steps.toLocaleString());
+      const stepBar = document.getElementById('fbDashStepsBar');
+      if (stepBar) stepBar.style.width = `${stepPct}%`;
+      setTxt('fbDashDistance', `${distMi} mi • ${fb.floors || 0} floors`);
+
+      const calOut = fb.caloriesOut || 0;
+      const actCal = fb.activityCalories || 0;
+      const netCal = nutriTotals.cal - calOut;
+      setTxt('fbDashCalOut', `${calOut.toLocaleString()} <span class="text-xs font-normal text-slate-400">kcal</span>`, true);
+      setTxt('fbDashActiveCal', `Active burn: ${actCal.toLocaleString()} kcal`);
+      setTxt(
+        'fbDashNetCal',
+        calOut > 0
+          ? `Net: ${netCal <= 0 ? netCal : '+' + netCal} kcal (${netCal <= 0 ? 'Deficit' : 'Surplus'})`
+          : 'Sync Fitbit for live TDEE'
+      );
+
+      const azm = fb.activeZoneMin || 0;
+      setTxt('fbDashAzm', `${azm} <span class="text-xs font-normal text-slate-400">min</span>`, true);
+      setTxt('fbDashHrZones', `Fat: ${fb.fatBurnMin || 0}m • Card: ${fb.cardioMin || 0}m • Peak: ${fb.peakMin || 0}m`);
+
+      setTxt('fbDashRhr', `${fb.rhr || '--'} <span class="text-xs font-normal text-slate-400">bpm</span>`, true);
+      setTxt('fbDashHrv', `HRV: ${fb.hrv ? fb.hrv + ' ms' : '-- ms'}`);
+      setTxt('fbDashVo2', `VO2: ${fb.vo2Max || '--'} • SpO2: ${fb.spo2 ? fb.spo2 + '%' : '--%'}`);
+
+      const sleepHrs = fb.sleepHours || 0;
+      setTxt('fbDashSleepHrs', `${sleepHrs.toFixed(1)} <span class="text-xs font-normal text-slate-400">hrs</span>`, true);
+      setTxt('fbDashSleepEff', `Efficiency: ${fb.sleepEff ? fb.sleepEff + '%' : '--%'}`);
+      setTxt('fbDashSleepStages', `Deep: ${fb.deepMin || 0}m • REM: ${fb.remMin || 0}m`);
+
+      const acts = Array.isArray(fb.activities) ? fb.activities : [];
+      if (acts.length > 0) {
+        setTxt('fbDashWorkoutsCount', `${acts.length} Watch Session${acts.length > 1 ? 's' : ''}`);
+        setTxt('fbDashWorkoutsSub', `${acts[0].name} (${acts[0].durationMin}m)`);
+      } else {
+        setTxt('fbDashWorkoutsCount', 'No Watch Runs');
+        setTxt('fbDashWorkoutsSub', 'Auto-imports to Workouts');
+      }
+
+      // Compute Readiness Recommendation from Sleep + RHR + HRV
+      let readinessTxt = 'Readiness: Sync Watch';
+      if (sleepHrs > 0 || fb.rhr) {
+        if (sleepHrs >= 7.3 && (!fb.rhr || fb.rhr <= 62)) {
+          readinessTxt = '🟢 Fresh Legs (Run Full Court)';
+        } else if (sleepHrs >= 6.2) {
+          readinessTxt = '🟡 Moderate (Shoot & Lift)';
+        } else {
+          readinessTxt = '🔴 Low Sleep (Pool / Sauna Day)';
+        }
+      }
+      setTxt('fbDashReadinessBadge', readinessTxt);
     }
 
     // =================================================================
@@ -5190,6 +6130,7 @@
       renderJournalFeed();
       renderWorkoutsView();
       renderNutritionView();
+      renderFitbitDashboard();
       updateNutritionCalc();
       if (window.lucide) lucide.createIcons();
     }
@@ -5199,6 +6140,7 @@
       setSelectedDate(state.selectedDate);
       syncNutritionToCurrentWeight();
       setTimeout(initGoogleDriveSyncFromStorage, 300);
+      setTimeout(initFitbitFromStorageAndUrl, 450);
       if (window.lucide) lucide.createIcons();
     });
 
