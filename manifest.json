@@ -1,0 +1,26 @@
+{
+  "name": "Pulse & Flow | Hoops Conditioning & Weight-Loss Tracker",
+  "short_name": "Pulse & Flow",
+  "description": "Basketball conditioning, weight-loss deload tracker, joint-smart strength logger, and daily habit & mindfulness command center.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070b14",
+  "theme_color": "#090d16",
+  "categories": ["fitness", "health", "sports", "lifestyle"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2310b981'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='192' height='192' rx='42' fill='%23070b14'/%3E%3Crect x='12' y='12' width='168' height='168' rx='34' fill='url(%23g)'/%3E%3Ccircle cx='96' cy='96' r='54' fill='none' stroke='%23070b14' stroke-width='10'/%3E%3Cpath d='M42 96h108M96 42v108M58 58c20 20 20 56 0 76M134 58c-20 20-20 56 0 76' fill='none' stroke='%23070b14' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2310b981'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='112' fill='%23070b14'/%3E%3Crect x='32' y='32' width='448' height='448' rx='90' fill='url(%23g)'/%3E%3Ccircle cx='256' cy='256' r='144' fill='none' stroke='%23070b14' stroke-width='24'/%3E%3Cpath d='M112 256h288M256 112v288M154 154c54 54 54 150 0 204M358 154c-54 54-54 150 0 204' fill='none' stroke='%23070b14' stroke-width='20' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
