@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pulse-flow-hoops-v4.4';
+const CACHE_VERSION = 'pulse-flow-hoops-v4.5';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
@@ -71,10 +71,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Network-First strategy for index.html and same-origin app files
+  // 2. Network-First strategy for index.html and same-origin app files (bypass browser HTTP cache)
   if (url.origin === self.location.origin) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-cache' })
         .then((response) => {
           if (response && response.status === 200) {
             const copy = response.clone();
