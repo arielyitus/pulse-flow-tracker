@@ -1400,13 +1400,35 @@
 
       <!-- Scanned Food Preview & Log Form -->
       <div id="scannedFoodResultCard" class="bg-slate-900/95 rounded-xl p-4 border border-emerald-500/40 space-y-3 hidden">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <span id="scanFoodBrand" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Brand</span>
-            <h4 id="scanFoodTitle" class="text-sm font-extrabold text-white mt-1">Product Name</h4>
-            <p id="scanFoodServingInfo" class="text-[11px] text-slate-400 font-mono">Serving size</p>
+        <div class="flex items-start justify-between gap-2">
+          <span id="scanFoodBrand" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Brand / Source</span>
+          <span id="scanBarcodeBadge" class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">UPC</span>
+        </div>
+
+        <!-- Editable Product Name & Serving Size -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div class="sm:col-span-2">
+            <label class="text-[10px] uppercase text-slate-400 font-bold block mb-1">Product Name (Editable)</label>
+            <input id="scanFoodTitleInput" type="text" placeholder="Product Name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-500" />
           </div>
-          <span id="scanBarcodeBadge" class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">UPC</span>
+          <div>
+            <label class="text-[10px] uppercase text-slate-400 font-bold block mb-1">Serving Size</label>
+            <input id="scanFoodServingInput" type="text" placeholder="1 serving" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono focus:outline-none focus:border-emerald-500" />
+          </div>
+        </div>
+
+        <!-- Quick Name Search Fallback (if barcode wasn't in USDA or Open Food Facts) -->
+        <div id="scanFallbackSearchBox" class="p-2.5 rounded-xl bg-slate-950/90 border border-amber-500/30 space-y-2 hidden">
+          <label class="text-[10px] uppercase tracking-wider text-amber-300 font-bold block">
+            🔍 Barcode unlisted? Type food/brand name to auto-fill &amp; link to this barcode:
+          </label>
+          <div class="flex items-center gap-1.5">
+            <input id="scanFallbackQueryInput" type="text" onkeydown="if(event.key==='Enter') searchByNameForScannedBarcode()" placeholder="e.g. Kirkland Protein Bar, Chobani, Trader Joe's..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500" />
+            <button onclick="searchByNameForScannedBarcode()" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold shrink-0">
+              Find Macros
+            </button>
+          </div>
+          <div id="scanFallbackResults" class="space-y-1 max-h-36 overflow-y-auto"></div>
         </div>
 
         <!-- Editable Macros before logging -->
@@ -1448,7 +1470,7 @@
 
         <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
           <input id="scanSaveToCustomCheck" type="checkbox" checked class="rounded border-slate-700 text-emerald-500" />
-          <span>Save to <strong>My Foods Library</strong> for future 1-tap logging</span>
+          <span>Save barcode to <strong>My Foods Library</strong> (remembers this package forever)</span>
         </label>
 
         <button onclick="confirmLogScannedFood()" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition">
@@ -4272,7 +4294,9 @@
       renderStapleFoodsList();
     }
 
-    // Open Food Facts Online Search (3M+ Global Products, Free, No Key Required)
+    // Multi-Database Online Search: USDA FoodData Central + Open Food Facts (Free, No Key Required)
+    let scanFallbackItems = [];
+
     async function searchOpenFoodFacts() {
       const query = (document.getElementById('openFoodSearchInput')?.value || '').trim();
       const resultsBox = document.getElementById('openFoodSearchResults');
@@ -4280,19 +4304,13 @@
 
       resultsBox.innerHTML = `
         <div class="text-xs text-emerald-400 text-center py-8 bg-slate-900/60 rounded-xl border border-slate-800 animate-pulse">
-          Searching Open Food Facts database for "<strong>${query}</strong>"...
+          Searching <strong>USDA FoodData Central</strong> &amp; <strong>Open Food Facts</strong> for "<strong>${query}</strong>"...
         </div>
       `;
 
       try {
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=12`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        const products = Array.isArray(data.products) ? data.products : [];
-
-        lastOnlineSearchItems = products
-          .map((p, idx) => extractProductMacros(p, idx))
-          .filter(item => item && item.name);
+        const combined = await queryCombinedFoodDatabases(query, 10);
+        lastOnlineSearchItems = combined;
 
         if (lastOnlineSearchItems.length === 0) {
           resultsBox.innerHTML = `
@@ -4307,7 +4325,7 @@
           <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex items-center justify-between gap-2.5">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5">
-                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 truncate max-w-[140px]">${item.brand || 'Grocery / Brand'}</span>
+                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 truncate max-w-[160px]">${item.brand || 'USDA / Grocery'}</span>
                 <span class="text-[10px] text-slate-400 font-mono truncate">${item.serving}</span>
               </div>
               <div class="text-xs font-bold text-white truncate mt-0.5">${item.name}</div>
@@ -4331,10 +4349,95 @@
       } catch (err) {
         resultsBox.innerHTML = `
           <div class="text-xs text-rose-400 text-center py-6 bg-rose-950/20 rounded-xl border border-rose-500/30">
-            Could not reach Open Food Facts (check internet connection). Your local <strong>My Foods</strong> library works 100% offline!
+            Could not reach online food databases (check internet connection). Your local <strong>My Foods</strong> library works 100% offline!
           </div>
         `;
       }
+    }
+
+    async function queryCombinedFoodDatabases(query, limitCount = 10) {
+      const usdaUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=${limitCount}&api_key=DEMO_KEY`;
+      const offUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=${limitCount}`;
+
+      const [usdaRes, offRes] = await Promise.allSettled([
+        fetch(usdaUrl).then(r => r.json()),
+        fetch(offUrl).then(r => r.json())
+      ]);
+
+      const results = [];
+      if (usdaRes.status === 'fulfilled' && usdaRes.value && Array.isArray(usdaRes.value.foods)) {
+        usdaRes.value.foods.forEach((f, idx) => {
+          const item = extractUsdaProductMacros(f, idx);
+          if (item && item.name && (item.cal > 0 || item.prot > 0 || item.carb > 0)) {
+            results.push(item);
+          }
+        });
+      }
+      if (offRes.status === 'fulfilled' && offRes.value && Array.isArray(offRes.value.products)) {
+        offRes.value.products.forEach((p, idx) => {
+          const item = extractProductMacros(p, idx);
+          if (item && item.name && (item.cal > 0 || item.prot > 0 || item.carb > 0)) {
+            results.push(item);
+          }
+        });
+      }
+      return results.slice(0, limitCount * 2);
+    }
+
+    function extractUsdaProductMacros(f, idx) {
+      if (!f) return null;
+      const nutrients = Array.isArray(f.foodNutrients) ? f.foodNutrients : [];
+      const findNutr = (ids, nameRegex) => {
+        const hit = nutrients.find(n => ids.includes(n.nutrientId) || ids.includes(Number(n.nutrientNumber)) || (n.nutrientName && nameRegex.test(n.nutrientName)));
+        return hit ? (parseFloat(hit.value ?? hit.amount) || 0) : 0;
+      };
+
+      // USDA search API returns values per 100g/100ml; scale to package servingSize when in g/ml
+      const cal100 = findNutr([1008, 208], /Energy/i);
+      const prot100 = findNutr([1003, 203], /^Protein/i);
+      const carb100 = findNutr([1005, 205], /Carbohydrate/i);
+      const fat100 = findNutr([1004, 204], /Total lipid|Fat/i);
+
+      const srvSize = parseFloat(f.servingSize) || 0;
+      const srvUnit = (f.servingSizeUnit || 'g').toLowerCase();
+      const canScaleToServing = srvSize > 0 && ['g', 'grm', 'ml', 'mlt'].includes(srvUnit);
+      const scale = canScaleToServing ? (srvSize / 100.0) : 1.0;
+
+      const prot = Math.round(prot100 * scale * 10) / 10;
+      const carb = Math.round(carb100 * scale * 10) / 10;
+      const fat = Math.round(fat100 * scale * 10) / 10;
+      let cal = Math.round(cal100 * scale);
+      if (cal <= 0 && (prot > 0 || carb > 0 || fat > 0)) {
+        cal = Math.round((prot * 4) + (carb * 4) + (fat * 9));
+      }
+
+      const cleanUnit = (srvUnit === 'grm' || srvUnit === 'g') ? 'g' : ((srvUnit === 'mlt' || srvUnit === 'ml') ? 'ml' : srvUnit);
+      let servingLabel = 'Per 100g';
+      if (f.householdServingFullText && srvSize > 0) {
+        servingLabel = `${f.householdServingFullText} (${Math.round(srvSize)}${cleanUnit})`;
+      } else if (srvSize > 0) {
+        servingLabel = `1 serving (${Math.round(srvSize)}${cleanUnit})`;
+      } else if (f.householdServingFullText) {
+        servingLabel = f.householdServingFullText;
+      }
+
+      const rawName = f.description || 'USDA Food Item';
+      const formattedName = rawName === rawName.toUpperCase()
+        ? rawName.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+        : rawName;
+
+      return {
+        id: 'usda_' + (f.fdcId || idx) + '_' + Date.now(),
+        name: formattedName,
+        brand: f.brandName || f.brandOwner || 'USDA Verified',
+        category: 'USDA Verified',
+        serving: servingLabel,
+        cal,
+        prot,
+        carb,
+        fat,
+        barcode: f.gtinUpc || ''
+      };
     }
 
     function extractProductMacros(p, idx) {
@@ -4356,9 +4459,12 @@
         cal = Math.round((prot * 4) + (carb * 4) + (fat * 9));
       }
 
+      const name = p.product_name_en || p.product_name || p.generic_name_en || p.generic_name || '';
+      if (!name) return null;
+
       return {
         id: 'off_' + (p.code || idx) + '_' + Date.now(),
-        name: p.product_name || p.generic_name || 'Food Item',
+        name,
         brand: (p.brands || 'Open Food Facts').split(',')[0],
         category: 'Branded Food',
         serving: p.serving_size ? `Serving (${p.serving_size})` : (hasServing ? '1 serving' : 'Per 100g'),
@@ -4388,7 +4494,56 @@
       switchFoodFinderTab('staples');
     }
 
-    // Live Camera Barcode Scanner (html5-qrcode) + Open Food Facts Barcode v2 API
+    //Expand 8-digit UPC-E barcode to 12-digit UPC-A
+    function expandUpcEToUpcA(upce) {
+      if (!upce || upce.length !== 8) return null;
+      const ns = upce[0];
+      const d1 = upce[1], d2 = upce[2], d3 = upce[3], d4 = upce[4], d5 = upce[5], d6 = upce[6];
+      const check = upce[7];
+      let body = '';
+      if (['0', '1', '2'].includes(d6)) {
+        body = `${d1}${d2}${d6}0000${d3}${d4}${d5}`;
+      } else if (d6 === '3') {
+        body = `${d1}${d2}${d3}00000${d4}${d5}`;
+      } else if (d6 === '4') {
+        body = `${d1}${d2}${d3}${d4}00000${d5}`;
+      } else {
+        body = `${d1}${d2}${d3}${d4}${d5}0000${d6}`;
+      }
+      return `${ns}${body}${check}`;
+    }
+
+    // Generate all valid US UPC-A (12-digit), EAN-13 (13-digit), UPC-E (8-digit), and stripped-zero candidates
+    function generateBarcodeCandidates(rawCode) {
+      const digits = (rawCode || '').replace(/\D/g, '');
+      if (!digits) return [rawCode];
+      const set = new Set();
+      set.add(digits);
+
+      const stripped = digits.replace(/^0+/, '');
+      if (stripped) {
+        set.add(stripped);
+        if (stripped.length <= 12) set.add(stripped.padStart(12, '0'));
+        if (stripped.length <= 13) set.add(stripped.padStart(13, '0'));
+      }
+      if (digits.length === 13 && digits.startsWith('0')) {
+        set.add(digits.slice(1)); // 12-digit US UPC-A
+      }
+      if (digits.length === 12) {
+        set.add('0' + digits); // 13-digit EAN-13
+      }
+      if (digits.length === 8) {
+        const upca = expandUpcEToUpcA(digits);
+        if (upca) {
+          set.add(upca);
+          set.add('0' + upca);
+          set.add(upca.replace(/^0+/, ''));
+        }
+      }
+      return Array.from(set);
+    }
+
+    // Live Camera Barcode Scanner (html5-qrcode) + Multi-DB Lookup (Local + Open Food Facts + USDA)
     function openBarcodeScannerModal() {
       const modal = document.getElementById('barcodeScannerModal');
       if (!modal) return;
@@ -4427,17 +4582,29 @@
         if (startBtn) startBtn.classList.add('hidden');
         if (stopBtn) stopBtn.classList.remove('hidden');
         if (statusEl) {
-          statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Camera active — Center UPC/EAN barcode in frame';
+          statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Camera active — Hold steady 4–6 inches from barcode';
         }
+
+        let lastCandidateCode = '';
+        let consecutiveCount = 0;
 
         await html5QrScannerInstance.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 110 } },
+          { fps: 15, qrbox: { width: 270, height: 115 } },
           (decodedText) => {
-            if (decodedText) {
-              document.getElementById('manualBarcodeInput').value = decodedText;
+            const clean = (decodedText || '').trim();
+            if (!clean || clean.length < 6) return;
+            // Require 2 consecutive matching frame reads (~130ms) to prevent blurry motion misreads
+            if (clean === lastCandidateCode) {
+              consecutiveCount++;
+            } else {
+              lastCandidateCode = clean;
+              consecutiveCount = 1;
+            }
+            if (consecutiveCount >= 2) {
+              document.getElementById('manualBarcodeInput').value = clean;
               stopCameraBarcodeScanner();
-              lookupBarcodeOpenFoodFacts(decodedText);
+              lookupBarcodeOpenFoodFacts(clean);
             }
           },
           () => {}
@@ -4481,16 +4648,23 @@
       }
       if (inputEl) inputEl.value = rawCode;
 
-      const card = document.getElementById('scannedFoodResultCard');
       const statusEl = document.getElementById('cameraScannerStatus');
+      const fallbackBox = document.getElementById('scanFallbackSearchBox');
+      if (fallbackBox) fallbackBox.classList.add('hidden');
+
+      const candidates = generateBarcodeCandidates(rawCode);
+      const strippedTarget = rawCode.replace(/\D/g, '').replace(/^0+/, '');
+
       if (statusEl) {
-        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Looking up barcode <strong>${rawCode}</strong>...`;
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Searching Local Library, Open Food Facts &amp; USDA for <strong>${rawCode}</strong>...`;
       }
 
-      // 1. Check local Custom Foods & Staples first for instant zero-latency match
-      const localMatch = getAllLibraryFoods().find(f =>
-        f.barcode && (f.barcode === rawCode || f.barcode.replace(/^0+/, '') === rawCode.replace(/^0+/, ''))
-      );
+      // 1. Check local Custom Foods & Staples first across all normalized UPC/EAN variants
+      const localMatch = getAllLibraryFoods().find(f => {
+        if (!f.barcode) return false;
+        const fStripped = f.barcode.replace(/\D/g, '').replace(/^0+/, '');
+        return candidates.includes(f.barcode) || (strippedTarget && fStripped === strippedTarget);
+      });
       if (localMatch) {
         populateScannedFoodCard({
           name: localMatch.name,
@@ -4501,79 +4675,156 @@
           carb: localMatch.carb,
           fat: localMatch.fat,
           barcode: rawCode
-        });
+        }, false);
         if (statusEl) {
           statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Matched from your Saved Foods Library!`;
         }
         return;
       }
 
-      // 2. Query Open Food Facts API v2
-      try {
-        const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(rawCode)}.json`);
-        const data = await resp.json();
-        if (data && data.status === 1 && data.product) {
-          const extracted = extractProductMacros(data.product, 0);
-          populateScannedFoodCard({ ...extracted, barcode: rawCode });
-          if (statusEl) {
-            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Barcode verified via Open Food Facts!`;
+      // 2. Query Open Food Facts API v2 across normalized barcode variants (13-digit EAN-13 & 12-digit UPC-A)
+      for (const codeVariant of candidates.slice(0, 4)) {
+        try {
+          const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codeVariant)}.json`);
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.status === 1 && data.product) {
+              const extracted = extractProductMacros(data.product, 0);
+              if (extracted && extracted.name) {
+                populateScannedFoodCard({ ...extracted, barcode: rawCode }, false);
+                if (statusEl) {
+                  statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Found via Open Food Facts (${codeVariant})!`;
+                }
+                return;
+              }
+            }
           }
-        } else {
-          // Allow user to fill macros for an unrecognized barcode and save it for next time
-          populateScannedFoodCard({
-            name: `Custom Barcode Item (${rawCode})`,
-            brand: 'New Barcode — Enter Macros Once to Save',
-            serving: '1 serving',
-            cal: 200,
-            prot: 20,
-            carb: 15,
-            fat: 6,
-            barcode: rawCode
-          });
-          if (statusEl) {
-            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> Unlisted UPC — confirm macros below to save this barcode permanently.`;
+        } catch (e) {}
+      }
+
+      // 3. Query Official USDA FoodData Central Branded UPC Database (450,000+ US Grocery Barcodes)
+      for (const codeVariant of candidates.slice(0, 3)) {
+        try {
+          const usdaUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(codeVariant)}&dataType=Branded&pageSize=6&api_key=DEMO_KEY`;
+          const resp = await fetch(usdaUrl);
+          if (resp.ok) {
+            const data = await resp.json();
+            const foods = Array.isArray(data.foods) ? data.foods : [];
+            // Prefer exact gtinUpc match (ignoring leading zeros), or first result if query was exact barcode
+            const matchedFood = foods.find(f => {
+              const fUpc = (f.gtinUpc || '').replace(/\D/g, '').replace(/^0+/, '');
+              return strippedTarget && fUpc === strippedTarget;
+            }) || foods[0];
+
+            if (matchedFood) {
+              const extracted = extractUsdaProductMacros(matchedFood, 0);
+              if (extracted && extracted.name) {
+                populateScannedFoodCard({ ...extracted, barcode: rawCode }, false);
+                if (statusEl) {
+                  statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Found in Official USDA Branded Foods Database!`;
+                }
+                return;
+              }
+            }
           }
-        }
-      } catch (err) {
-        if (statusEl) {
-          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> Offline — enter macros below to save barcode ${rawCode} locally.`;
-        }
-        populateScannedFoodCard({
-          name: `Scanned Food (${rawCode})`,
-          brand: 'Offline Barcode Entry',
-          serving: '1 serving',
-          cal: 200,
-          prot: 20,
-          carb: 15,
-          fat: 6,
-          barcode: rawCode
-        });
+        } catch (e) {}
+      }
+
+      // 4. If barcode is not registered in Open Food Facts or USDA yet, show the inline Name Search & Linker!
+      populateScannedFoodCard({
+        name: '',
+        brand: 'Unlisted Barcode — Search Name Below or Enter Macros Once',
+        serving: '1 serving',
+        cal: 0,
+        prot: 0,
+        carb: 0,
+        fat: 0,
+        barcode: rawCode
+      }, true);
+
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> Barcode <strong>${rawCode}</strong> isn't in the public registry yet — type the product name in the gold box below to auto-fill &amp; link it!`;
       }
     }
 
-    function populateScannedFoodCard(info) {
+    async function searchByNameForScannedBarcode() {
+      const q = (document.getElementById('scanFallbackQueryInput')?.value || '').trim();
+      const box = document.getElementById('scanFallbackResults');
+      if (!q || !box) return;
+      box.innerHTML = `<div class="text-[11px] text-amber-300 py-2 animate-pulse">Searching USDA &amp; Open Food Facts for "${q}"...</div>`;
+
+      try {
+        scanFallbackItems = await queryCombinedFoodDatabases(q, 6);
+        if (scanFallbackItems.length === 0) {
+          box.innerHTML = `<div class="text-[11px] text-slate-400 py-1">No match found — enter the product name and macros directly below.</div>`;
+          return;
+        }
+        box.innerHTML = scanFallbackItems.map((item, idx) => `
+          <div onclick="applyFallbackItemToScannedCard(${idx})" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 cursor-pointer flex items-center justify-between gap-2 transition">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-bold text-white truncate">${item.name} <span class="text-[10px] text-slate-400 font-normal">(${item.brand})</span></div>
+              <div class="text-[10px] font-mono text-emerald-400">${item.serving} • ${item.cal} kcal • ${item.prot}g P • ${item.carb}g C • ${item.fat}g F</div>
+            </div>
+            <span class="px-2 py-1 rounded bg-amber-500 text-slate-950 text-[10px] font-extrabold shrink-0">Use This</span>
+          </div>
+        `).join('');
+      } catch (e) {
+        box.innerHTML = `<div class="text-[11px] text-rose-400 py-1">Search error — type macros directly below.</div>`;
+      }
+    }
+
+    function applyFallbackItemToScannedCard(idx) {
+      const item = scanFallbackItems[idx];
+      if (!item) return;
+      const card = document.getElementById('scannedFoodResultCard');
+      const currentBarcode = card?.dataset?.foodBarcode || document.getElementById('manualBarcodeInput')?.value || '';
+      populateScannedFoodCard({
+        ...item,
+        barcode: currentBarcode
+      }, false);
+      const statusEl = document.getElementById('cameraScannerStatus');
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Linked <strong>${item.name}</strong> to barcode <strong>${currentBarcode}</strong>! Tap Log below.`;
+      }
+    }
+
+    function populateScannedFoodCard(info, showFallbackSearch) {
       const card = document.getElementById('scannedFoodResultCard');
       if (!card) return;
       card.classList.remove('hidden');
       document.getElementById('scanFoodBrand').textContent = info.brand || 'Scanned Product';
-      document.getElementById('scanFoodTitle').textContent = info.name || 'Food Item';
-      document.getElementById('scanFoodServingInfo').textContent = info.serving || '1 serving';
+      const titleInput = document.getElementById('scanFoodTitleInput');
+      const servingInput = document.getElementById('scanFoodServingInput');
+      if (titleInput) titleInput.value = info.name || '';
+      if (servingInput) servingInput.value = info.serving || '1 serving';
       document.getElementById('scanBarcodeBadge').textContent = `UPC: ${info.barcode || ''}`;
       document.getElementById('scanFoodCal').value = Math.round(info.cal || 0);
       document.getElementById('scanFoodProt').value = info.prot || 0;
       document.getElementById('scanFoodCarb').value = info.carb || 0;
       document.getElementById('scanFoodFat').value = info.fat || 0;
-      card.dataset.foodName = info.name || 'Scanned Food';
-      card.dataset.foodServing = info.serving || '1 serving';
       card.dataset.foodBarcode = info.barcode || '';
+
+      const fallbackBox = document.getElementById('scanFallbackSearchBox');
+      if (fallbackBox) {
+        fallbackBox.classList.toggle('hidden', !showFallbackSearch);
+        if (showFallbackSearch) {
+          const qInput = document.getElementById('scanFallbackQueryInput');
+          if (qInput) {
+            qInput.value = '';
+            setTimeout(() => qInput.focus(), 100);
+          }
+          const resBox = document.getElementById('scanFallbackResults');
+          if (resBox) resBox.innerHTML = '';
+        }
+      }
     }
 
     function confirmLogScannedFood() {
       const card = document.getElementById('scannedFoodResultCard');
       if (!card) return;
-      const name = card.dataset.foodName || 'Scanned Food';
-      const serving = card.dataset.foodServing || '1 serving';
-      const barcode = card.dataset.foodBarcode || '';
+      const barcode = card.dataset.foodBarcode || (document.getElementById('manualBarcodeInput')?.value || '').trim();
+      const name = (document.getElementById('scanFoodTitleInput')?.value || '').trim() || `Scanned Item (${barcode || 'Custom'})`;
+      const serving = (document.getElementById('scanFoodServingInput')?.value || '').trim() || '1 serving';
       const cal = parseFloat(document.getElementById('scanFoodCal')?.value) || 0;
       const prot = parseFloat(document.getElementById('scanFoodProt')?.value) || 0;
       const carb = parseFloat(document.getElementById('scanFoodCarb')?.value) || 0;
@@ -4582,12 +4833,14 @@
       const servings = parseFloat(document.getElementById('scanServingsInput')?.value) || 1;
       const saveCustom = document.getElementById('scanSaveToCustomCheck')?.checked;
 
+      const finalCal = cal > 0 ? Math.round(cal) : Math.round((prot * 4) + (carb * 4) + (fat * 9));
+
       const foodItem = {
         id: 'scan_' + Date.now(),
         name,
         category: 'Barcode Scanned',
         serving,
-        cal: Math.round(cal),
+        cal: finalCal,
         prot: Math.round(prot * 10) / 10,
         carb: Math.round(carb * 10) / 10,
         fat: Math.round(fat * 10) / 10,
@@ -4596,8 +4849,14 @@
 
       if (saveCustom) {
         if (!Array.isArray(state.customFoods)) state.customFoods = [];
-        const exists = state.customFoods.some(f => f.barcode && barcode && f.barcode === barcode);
-        if (!exists) {
+        const strippedCode = (barcode || '').replace(/\D/g, '').replace(/^0+/, '');
+        const existingIdx = state.customFoods.findIndex(f => {
+          if (!f.barcode || !strippedCode) return false;
+          return f.barcode.replace(/\D/g, '').replace(/^0+/, '') === strippedCode;
+        });
+        if (existingIdx >= 0) {
+          state.customFoods[existingIdx] = foodItem;
+        } else {
           state.customFoods.unshift(foodItem);
         }
       }

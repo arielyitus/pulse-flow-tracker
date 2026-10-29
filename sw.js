@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pulse-flow-hoops-v4.2';
+const CACHE_VERSION = 'pulse-flow-hoops-v4.3';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const CDN_CACHE = `${CACHE_VERSION}-cdn`;
 
