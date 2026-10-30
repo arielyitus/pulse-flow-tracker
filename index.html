@@ -1722,6 +1722,8 @@
           </button>
         </div>
 
+        <div id="fitbitApiDebugBox" class="hidden p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 whitespace-pre-wrap"></div>
+
         <!-- Google Health API v4 Setup Instructions -->
         <details class="bg-slate-900/90 rounded-xl p-3 border border-slate-800" open>
           <summary class="cursor-pointer font-bold text-amber-300 flex items-center justify-between">
@@ -2483,12 +2485,17 @@
     // =================================================================
     // STORAGE, GOOGLE DRIVE AUTO-SYNC, PWA & FIREBASE v10
     // =================================================================
+    function getLocalTodayIso() {
+      const now = new Date();
+      return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
+
     function loadState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          state = { ...state, ...parsed };
+          state = { ...state, ...parsed, selectedDate: getLocalTodayIso() };
           if (!state.workoutPlan || !state.workoutPlan.routines) {
             state.workoutPlan = JSON.parse(JSON.stringify(DEFAULT_WORKOUT_PLAN));
           } else if (state.workoutPlan.version !== DEFAULT_WORKOUT_PLAN.version) {
@@ -2733,7 +2740,8 @@
 
         if (isManual || remoteUpdated > localUpdated) {
           isApplyingRemoteSnapshot = true;
-          state = { ...state, ...remoteState };
+          const mergedFitbitLogs = { ...(remoteState.fitbitLogs || {}), ...(state.fitbitLogs || {}) };
+          state = { ...state, ...remoteState, fitbitLogs: mergedFitbitLogs, selectedDate: getLocalTodayIso() };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           setSelectedDate(state.selectedDate);
           syncNutritionToCurrentWeight();
@@ -5732,8 +5740,17 @@
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-      const startIso = `${dateStr}T00:00:00Z`;
-      const endIso = `${dateStr}T23:59:59Z`;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const nextDateObj = new Date(Date.UTC(y, m - 1, d + 1));
+      const rangeCivil = {
+        start: { year: y, month: m, day: d },
+        end: {
+          year: nextDateObj.getUTCFullYear(),
+          month: nextDateObj.getUTCMonth() + 1,
+          day: nextDateObj.getUTCDate()
+        }
+      };
+      const debugNotes = [];
 
       const postRollUp = async (dataType) => {
         try {
@@ -5741,31 +5758,33 @@
             method: 'POST',
             headers,
             body: JSON.stringify({
-              interval: { startTime: startIso, endTime: endIso },
+              range: rangeCivil,
               windowSizeDays: 1,
               dataSourceFamily: 'users/me/dataSourceFamilies/all-sources'
             })
           });
-          if (!r.ok) return null;
-          return await r.json();
+          const json = await r.json().catch(() => null);
+          if (!r.ok) {
+            debugNotes.push(`${dataType} rollUp HTTP ${r.status}: ${json?.error?.message || ''}`);
+            return null;
+          }
+          return json;
         } catch (e) {
           return null;
         }
       };
 
-      const listDataPoints = async (dataType, fieldPrefix) => {
+      const listDataPoints = async (dataType) => {
         try {
-          const filterStr = `${fieldPrefix}.interval.start_time >= "${startIso}" AND ${fieldPrefix}.interval.start_time <= "${endIso}"`;
-          const r = await fetch(`${baseUrl}/${dataType}/dataPoints?filter=${encodeURIComponent(filterStr)}`, {
+          const r = await fetch(`${baseUrl}/${dataType}/dataPoints?pageSize=35`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
+          const json = await r.json().catch(() => null);
           if (!r.ok) {
-            const rFallback = await fetch(`${baseUrl}/${dataType}/dataPoints?pageSize=25`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            return rFallback.ok ? await rFallback.json() : null;
+            debugNotes.push(`${dataType} list HTTP ${r.status}: ${json?.error?.message || ''}`);
+            return null;
           }
-          return await r.json();
+          return json;
         } catch (e) {
           return null;
         }
@@ -5792,43 +5811,59 @@
         postRollUp('total-calories'),
         postRollUp('active-energy-burned'),
         postRollUp('active-zone-minutes'),
-        listDataPoints('daily-resting-heart-rate', 'daily_resting_heart_rate'),
-        listDataPoints('daily-heart-rate-variability', 'daily_heart_rate_variability'),
-        listDataPoints('daily-vo2-max', 'daily_vo2_max'),
-        listDataPoints('daily-oxygen-saturation', 'daily_oxygen_saturation'),
-        listDataPoints('sleep', 'sleep'),
-        listDataPoints('exercise', 'exercise'),
-        listDataPoints('weight', 'weight')
+        listDataPoints('daily-resting-heart-rate'),
+        listDataPoints('daily-heart-rate-variability'),
+        listDataPoints('daily-vo2-max'),
+        listDataPoints('daily-oxygen-saturation'),
+        listDataPoints('sleep'),
+        listDataPoints('exercise'),
+        listDataPoints('weight')
       ]);
 
       if (!state.fitbitLogs) state.fitbitLogs = {};
       const entry = { ...(state.fitbitLogs[dateStr] || {}) };
 
-      // 1. Steps, Distance, Floors
-      const stepPt = stepsRoll?.dailyRollupDataPoints?.[0]?.steps;
-      if (stepPt && stepPt.count !== undefined) entry.steps = Number(stepPt.count);
+      const getRollBucket = (rollObj) => (rollObj?.rollupDataPoints || rollObj?.dailyRollupDataPoints || [])[0];
 
-      const distPt = distRoll?.dailyRollupDataPoints?.[0]?.distance;
+      // 1. Steps, Distance, Floors (supports both countSum/millimetersSum and count/millimeters)
+      const stepPt = getRollBucket(stepsRoll)?.steps;
+      if (stepPt) {
+        const sc = Number(stepPt.countSum ?? stepPt.count ?? 0);
+        if (sc > 0) entry.steps = Math.round(sc);
+      }
+      if (!entry.steps) {
+        const rawSteps = await listDataPoints('steps');
+        const pts = (rawSteps?.dataPoints || []).filter(p => JSON.stringify(p).includes(dateStr));
+        const sumSteps = pts.reduce((acc, p) => acc + Number(p?.steps?.count || 0), 0);
+        if (sumSteps > 0) entry.steps = Math.round(sumSteps);
+      }
+
+      const distPt = getRollBucket(distRoll)?.distance;
       if (distPt) {
-        const mm = Number(distPt.millimeters || distPt.distanceMillimeters || distPt.value || 0);
+        const mm = Number(distPt.millimetersSum ?? distPt.millimeters ?? distPt.distanceMillimeters ?? distPt.value ?? 0);
         if (mm > 0) entry.distanceMiles = Math.round((mm / 1609344) * 100) / 100;
       }
 
-      const floorPt = floorsRoll?.dailyRollupDataPoints?.[0]?.floors;
-      if (floorPt && floorPt.count !== undefined) entry.floors = Number(floorPt.count);
-
-      // 2. Total Calories & Active Energy Burned
-      const totCalPt = totalCalRoll?.dailyRollupDataPoints?.[0]?.totalCalories;
-      if (totCalPt) {
-        entry.caloriesOut = Math.round(Number(totCalPt.value || totCalPt.caloriesKcal || entry.caloriesOut || 0));
+      const floorPt = getRollBucket(floorsRoll)?.floors;
+      if (floorPt) {
+        const fc = Number(floorPt.countSum ?? floorPt.count ?? 0);
+        if (fc > 0) entry.floors = Math.round(fc);
       }
-      const actCalPt = activeCalRoll?.dailyRollupDataPoints?.[0]?.activeEnergyBurned;
+
+      // 2. Total Calories & Active Energy Burned (`kcalSum` in Google Health API v4)
+      const totCalPt = getRollBucket(totalCalRoll)?.totalCalories;
+      if (totCalPt) {
+        const kc = Number(totCalPt.kcalSum ?? totCalPt.value ?? totCalPt.caloriesKcal ?? 0);
+        if (kc > 0) entry.caloriesOut = Math.round(kc);
+      }
+      const actCalPt = getRollBucket(activeCalRoll)?.activeEnergyBurned;
       if (actCalPt) {
-        entry.activityCalories = Math.round(Number(actCalPt.value || actCalPt.caloriesKcal || entry.activityCalories || 0));
+        const akc = Number(actCalPt.kcalSum ?? actCalPt.value ?? actCalPt.caloriesKcal ?? 0);
+        if (akc > 0) entry.activityCalories = Math.round(akc);
       }
 
       // 3. Active Zone Minutes & HR Zones
-      const azmPt = azmRoll?.dailyRollupDataPoints?.[0]?.activeZoneMinutes || azmRoll?.dailyRollupDataPoints?.[0];
+      const azmPt = getRollBucket(azmRoll)?.activeZoneMinutes || getRollBucket(azmRoll);
       if (azmPt) {
         const fat = Number(azmPt.sumInFatBurnHeartZone || 0);
         const cardio = Number(azmPt.sumInCardioHeartZone || 0);
@@ -5841,9 +5876,17 @@
         }
       }
 
-      // 4. Resting HR, HRV, VO2 Max, SpO2
-      const matchDatePoint = (pts) => (pts?.dataPoints || []).find(p => JSON.stringify(p).includes(dateStr)) || (pts?.dataPoints || [])[0];
+      // Helper to match a DataPoint by YYYY-MM-DD or civil `{year, month, day}`
+      const matchesDate = (p) => {
+        if (!p) return false;
+        const raw = JSON.stringify(p);
+        if (raw.includes(dateStr)) return true;
+        if (raw.includes(`"year":${y},"month":${m},"day":${d}`)) return true;
+        return false;
+      };
+      const matchDatePoint = (pts) => (pts?.dataPoints || []).find(matchesDate);
 
+      // 4. Resting HR, HRV, VO2 Max, SpO2
       const rhrObj = matchDatePoint(rhrPoints)?.dailyRestingHeartRate;
       if (rhrObj?.restingHeartRateBeatsPerMinute) {
         entry.rhr = Math.round(Number(rhrObj.restingHeartRateBeatsPerMinute));
@@ -5898,7 +5941,7 @@
       }
 
       // 6. Exercise Sessions (Watch Workouts)
-      const exList = (exercisePoints?.dataPoints || []).filter(p => JSON.stringify(p).includes(dateStr));
+      const exList = (exercisePoints?.dataPoints || []).filter(matchesDate);
       if (exList.length > 0) {
         entry.activities = exList.map((p, idx) => {
           const ex = p.exercise || {};
@@ -5983,6 +6026,19 @@
             });
           }
         } catch (e) {}
+      }
+
+      // Update diagnostic box if viewing selectedDate
+      if (dateStr === state.selectedDate) {
+        const dbg = document.getElementById('fitbitApiDebugBox');
+        if (dbg) {
+          dbg.classList.remove('hidden');
+          const summary = `Sync Date: ${dateStr} | Steps: ${entry.steps || 0} | Cal Burned: ${entry.caloriesOut || 0} | RHR: ${entry.rhr || '--'} | Sleep: ${entry.sleepHours || 0}h`;
+          const extra = debugNotes.length > 0
+            ? `\nAPI Notes: ${debugNotes.slice(0, 3).join(' | ')}`
+            : ((!entry.steps && !entry.caloriesOut) ? '\nNote: Google Health API v4 returned 0 records for this date. Make sure your Fitbit app is migrated/linked to your Google Account (smnyitus@gmail.com) and synced in the Fitbit phone app.' : '\n✓ Data received from Google Health API v4!');
+          dbg.textContent = summary + extra;
+        }
       }
 
       state.fitbitLogs[dateStr] = entry;
