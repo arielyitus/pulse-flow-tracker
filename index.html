@@ -5513,9 +5513,9 @@
       return Boolean(clientId && (clientId.includes('.apps.googleusercontent.com') || clientId.length > 15));
     }
 
-    async function startFitbitOAuthFlow() {
-      const clientId = (document.getElementById('fitbitClientIdInput')?.value || '').trim();
-      const clientSecret = (document.getElementById('fitbitClientSecretInput')?.value || '').trim();
+    async function startFitbitOAuthFlow(isSilentRefresh = false) {
+      const clientId = (document.getElementById('fitbitClientIdInput')?.value || fitbitAuth.clientId || DEFAULT_GOOGLE_HEALTH_CLIENT_ID).trim();
+      const clientSecret = (document.getElementById('fitbitClientSecretInput')?.value || fitbitAuth.clientSecret || '').trim();
       if (!clientId) {
         alert('Please enter your Google OAuth 2.0 Client ID (*.apps.googleusercontent.com) first.');
         return;
@@ -5547,8 +5547,9 @@
           const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(gScopes)}&access_type=offline&prompt=consent&include_granted_scopes=true&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`;
           window.location.href = authUrl;
         } else {
-          // Pure browser Web Client Implicit Token flow (works without Client Secret)
-          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(gScopes)}&include_granted_scopes=true&prompt=consent`;
+          // Pure browser Web Client Implicit Token flow (fast re-auth if already consented)
+          const promptParam = isSilentRefresh ? '&login_hint=smnyitus%40gmail.com' : '&login_hint=smnyitus%40gmail.com&prompt=consent';
+          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(gScopes)}&include_granted_scopes=true${promptParam}`;
           window.location.href = authUrl;
         }
         return;
@@ -5674,7 +5675,10 @@
         return fitbitAuth.accessToken;
       }
       if (!fitbitAuth.refreshToken || !fitbitAuth.clientId) {
-        return fitbitAuth.accessToken;
+        // Implicit access token has expired — clear it so caller fetches a fresh token
+        fitbitAuth.accessToken = '';
+        localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+        return null;
       }
       try {
         const isGoogle = fitbitAuth.provider === 'google_health' || isGoogleOAuthClient(fitbitAuth.clientId);
@@ -5767,6 +5771,13 @@
           const idJson = await idResp.json().catch(() => null);
           if (idResp.ok && idJson) {
             identityInfo = `Fitbit/Health ID: ${idJson.legacyUserId || idJson.healthUserId || 'Linked'}`;
+          } else if (idResp.status === 401) {
+            // Access token expired or revoked — clear and auto-refresh via Google OAuth
+            fitbitAuth.accessToken = '';
+            fitbitAuth.expiresAt = 0;
+            localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
+            startFitbitOAuthFlow(true);
+            return;
           } else {
             identityInfo = `Identity HTTP ${idResp.status}: ${idJson?.error?.status || idJson?.error?.message || 'Unlinked'}`;
           }
