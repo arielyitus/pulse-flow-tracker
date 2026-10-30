@@ -1706,16 +1706,16 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
             <label class="text-[11px] text-slate-400 font-semibold block mb-1">Google OAuth 2.0 Client ID (`*.apps.googleusercontent.com`) *</label>
-            <input id="fitbitClientIdInput" type="text" placeholder="123456-abc.apps.googleusercontent.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500" />
+            <input id="fitbitClientIdInput" type="text" value="514028039061-9vjgnc9rlt0j4t50sqfvj1r2q658gc1h.apps.googleusercontent.com" placeholder="123456-abc.apps.googleusercontent.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500" />
           </div>
           <div>
-            <label class="text-[11px] text-slate-400 font-semibold block mb-1">Client Secret (Optional if Web Client / PKCE)</label>
-            <input id="fitbitClientSecretInput" type="password" placeholder="Optional GOCSPX-... secret" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
+            <label class="text-[11px] text-slate-400 font-semibold block mb-1">Client Secret (Optional — Not Needed for Web OAuth)</label>
+            <input id="fitbitClientSecretInput" type="password" placeholder="Leave blank for 1-Tap Browser OAuth" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
           </div>
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <span id="fitbitModalStatusText" class="text-[11px] text-slate-400 font-mono">Paste your Google Cloud OAuth Client ID and tap Authorize Google Health API</span>
+          <span id="fitbitModalStatusText" class="text-[11px] text-emerald-400 font-mono">✓ Pre-Configured! Tap "Authorize Google Health API v4" to sign in &amp; sync</span>
           <button onclick="startFitbitOAuthFlow()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition shadow-md">
             <i data-lucide="link" class="w-3.5 h-3.5"></i>
             Authorize Google Health API v4
@@ -5406,13 +5406,15 @@
     // =================================================================
     const FITBIT_AUTH_KEY = 'pulse_flow_fitbit_auth_v1';
     const FITBIT_PKCE_VERIFIER_KEY = 'pulse_flow_fitbit_pkce_v1';
+    const DEFAULT_GOOGLE_HEALTH_CLIENT_ID = '514028039061-9vjgnc9rlt0j4t50sqfvj1r2q658gc1h.apps.googleusercontent.com';
     let fitbitAuth = {
-      clientId: '',
+      clientId: DEFAULT_GOOGLE_HEALTH_CLIENT_ID,
       clientSecret: '',
       accessToken: '',
       refreshToken: '',
       expiresAt: 0,
-      userId: ''
+      userId: 'me',
+      provider: 'google_health'
     };
 
     function getFitbitRedirectUri() {
@@ -5513,12 +5515,16 @@
 
       const redirectUri = getFitbitRedirectUri();
 
-      // Official Google Health API v4 OAuth 2.0 Flow (Post-Nov 2, 2026 Standard)
+      // Official Google Health API v4 + Fitness API v1 OAuth 2.0 Flow (Post-Nov 2, 2026 Standard)
       if (fitbitAuth.provider === 'google_health') {
         const gScopes = [
           'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
           'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
-          'https://www.googleapis.com/auth/googlehealth.sleep.readonly'
+          'https://www.googleapis.com/auth/googlehealth.sleep.readonly',
+          'https://www.googleapis.com/auth/fitness.activity.read',
+          'https://www.googleapis.com/auth/fitness.heart_rate.read',
+          'https://www.googleapis.com/auth/fitness.sleep.read',
+          'https://www.googleapis.com/auth/fitness.body.read'
         ].join(' ');
 
         if (clientSecret) {
@@ -5560,6 +5566,10 @@
         const raw = localStorage.getItem(FITBIT_AUTH_KEY);
         if (raw) {
           fitbitAuth = { ...fitbitAuth, ...JSON.parse(raw) };
+        }
+        if (!fitbitAuth.clientId) {
+          fitbitAuth.clientId = DEFAULT_GOOGLE_HEALTH_CLIENT_ID;
+          fitbitAuth.provider = 'google_health';
         }
       } catch (e) {}
 
@@ -5688,7 +5698,7 @@
     }
 
     function disconnectFitbit() {
-      fitbitAuth = { clientId: '', clientSecret: '', accessToken: '', refreshToken: '', expiresAt: 0, userId: '', provider: 'google_health' };
+      fitbitAuth = { clientId: DEFAULT_GOOGLE_HEALTH_CLIENT_ID, clientSecret: '', accessToken: '', refreshToken: '', expiresAt: 0, userId: 'me', provider: 'google_health' };
       localStorage.removeItem(FITBIT_AUTH_KEY);
       updateFitbitStatusUI(false);
       refreshAllUI();
@@ -5937,6 +5947,44 @@
         }
       }
 
+      // 8. Fallback: Also query Google Fitness REST API v1 (`fitness.googleapis.com/v1`) if steps or calories are not yet populated
+      if (!entry.steps || !entry.caloriesOut) {
+        try {
+          const dayStartMs = new Date(`${dateStr}T00:00:00`).getTime();
+          const dayEndMs = new Date(`${dateStr}T23:59:59`).getTime();
+          const fitResp = await fetch('https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              aggregateBy: [
+                { dataTypeName: 'com.google.step_count.delta' },
+                { dataTypeName: 'com.google.calories.expended' },
+                { dataTypeName: 'com.google.active_minutes' },
+                { dataTypeName: 'com.google.heart_minutes' },
+                { dataTypeName: 'com.google.distance.delta' }
+              ],
+              bucketByTime: { durationMillis: 86400000 },
+              startTimeMillis: dayStartMs,
+              endTimeMillis: dayEndMs
+            })
+          });
+          if (fitResp.ok) {
+            const fitJson = await fitResp.json();
+            const datasets = fitJson?.bucket?.[0]?.dataset || [];
+            datasets.forEach(ds => {
+              const pt = ds?.point?.[0];
+              if (!pt) return;
+              const src = String(ds.dataSourceId || '');
+              const val = pt.value?.[0]?.intVal ?? pt.value?.[0]?.fpVal ?? 0;
+              if (src.includes('step_count') && !entry.steps && val > 0) entry.steps = Math.round(val);
+              else if (src.includes('calories') && !entry.caloriesOut && val > 0) entry.caloriesOut = Math.round(val);
+              else if ((src.includes('active_minutes') || src.includes('heart_minutes')) && !entry.activeZoneMin && val > 0) entry.activeZoneMin = Math.round(val);
+              else if (src.includes('distance') && !entry.distanceMiles && val > 0) entry.distanceMiles = Math.round((val / 1609.344) * 100) / 100;
+            });
+          }
+        } catch (e) {}
+      }
+
       state.fitbitLogs[dateStr] = entry;
     }
 
@@ -6081,14 +6129,20 @@
     async function syncFitbitDataForSelectedDate(isManual) {
       const token = await ensureValidFitbitAccessToken();
       if (!token) {
-        if (isManual) openFitbitModal();
+        if (isManual) {
+          if (fitbitAuth.clientId) {
+            startFitbitOAuthFlow();
+          } else {
+            openFitbitModal();
+          }
+        }
         return;
       }
-      updateFitbitStatusUI(true, 'Syncing Fitbit...');
+      updateFitbitStatusUI(true, 'Syncing Health...');
       await syncFitbitDataForDate(state.selectedDate, token);
       if (state.fitbitDynamicTdee) applyFitbitDynamicCalorieTarget();
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      updateFitbitStatusUI(true, `Fitbit Synced (${timeStr})`);
+      updateFitbitStatusUI(true, `Health Synced (${timeStr})`);
       saveState();
       refreshAllUI();
     }
