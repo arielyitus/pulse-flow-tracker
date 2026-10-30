@@ -372,6 +372,11 @@
           </div>
         </div>
 
+        <!-- Visible Dashboard API Diagnostic Banner -->
+        <div id="fitbitDashDebugBanner" class="px-3 py-2 rounded-xl bg-slate-950/90 border border-slate-800 text-[11px] font-mono text-cyan-300 flex flex-wrap items-center justify-between gap-2">
+          <span id="fitbitDashDebugText">Telemetry Diagnostic: Ready — click "Sync Watch / Health" to query Google Health API v4</span>
+        </div>
+
         <!-- 6 Wearable Telemetry Cards -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <!-- 1. Steps & Distance -->
@@ -5742,15 +5747,33 @@
       };
       const [y, m, d] = dateStr.split('-').map(Number);
       const nextDateObj = new Date(Date.UTC(y, m - 1, d + 1));
-      const rangeCivil = {
-        start: { year: y, month: m, day: d },
-        end: {
-          year: nextDateObj.getUTCFullYear(),
-          month: nextDateObj.getUTCMonth() + 1,
-          day: nextDateObj.getUTCDate()
-        }
+      const ny = nextDateObj.getUTCFullYear();
+      const nm = nextDateObj.getUTCMonth() + 1;
+      const nd = nextDateObj.getUTCDate();
+      // CivilTimeInterval with nested CivilDateTime.date (per Google Health API v4 spec)
+      const rangeCivilNested = {
+        start: { date: { year: y, month: m, day: d } },
+        end: { date: { year: ny, month: nm, day: nd } }
       };
       const debugNotes = [];
+
+      // Check Google Health identity endpoint on selectedDate
+      let identityInfo = '';
+      if (dateStr === state.selectedDate) {
+        try {
+          const idResp = await fetch('https://health.googleapis.com/v4/users/me/identity', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const idJson = await idResp.json().catch(() => null);
+          if (idResp.ok && idJson) {
+            identityInfo = `Fitbit/Health ID: ${idJson.legacyUserId || idJson.healthUserId || 'Linked'}`;
+          } else {
+            identityInfo = `Identity HTTP ${idResp.status}: ${idJson?.error?.status || idJson?.error?.message || 'Unlinked'}`;
+          }
+        } catch (e) {
+          identityInfo = `Identity fetch error: ${e.message}`;
+        }
+      }
 
       const postRollUp = async (dataType) => {
         try {
@@ -5758,14 +5781,14 @@
             method: 'POST',
             headers,
             body: JSON.stringify({
-              range: rangeCivil,
+              range: rangeCivilNested,
               windowSizeDays: 1,
               dataSourceFamily: 'users/me/dataSourceFamilies/all-sources'
             })
           });
           const json = await r.json().catch(() => null);
           if (!r.ok) {
-            debugNotes.push(`${dataType} rollUp HTTP ${r.status}: ${json?.error?.message || ''}`);
+            debugNotes.push(`${dataType} HTTP ${r.status}: ${json?.error?.message || ''}`);
             return null;
           }
           return json;
@@ -6028,16 +6051,21 @@
         } catch (e) {}
       }
 
-      // Update diagnostic box if viewing selectedDate
+      // Update diagnostic boxes on Dashboard and inside Modal if viewing selectedDate
       if (dateStr === state.selectedDate) {
+        const summary = `[${dateStr}] ${identityInfo} | Steps: ${entry.steps || 0} | Burn: ${entry.caloriesOut || 0} kcal | RHR: ${entry.rhr || '--'} | Sleep: ${entry.sleepHours || 0}h`;
+        const extra = debugNotes.length > 0
+          ? ` | API: ${debugNotes.slice(0, 2).join('; ')}`
+          : ((!entry.steps && !entry.caloriesOut) ? ' | API returned 0 points for this date (try shifting date picker to yesterday or check Fitbit-to-Google account link)' : ' | ✓ Live Data Active');
+        const fullDiag = summary + extra;
+
+        const dashDbg = document.getElementById('fitbitDashDebugText');
+        if (dashDbg) dashDbg.textContent = fullDiag;
+
         const dbg = document.getElementById('fitbitApiDebugBox');
         if (dbg) {
           dbg.classList.remove('hidden');
-          const summary = `Sync Date: ${dateStr} | Steps: ${entry.steps || 0} | Cal Burned: ${entry.caloriesOut || 0} | RHR: ${entry.rhr || '--'} | Sleep: ${entry.sleepHours || 0}h`;
-          const extra = debugNotes.length > 0
-            ? `\nAPI Notes: ${debugNotes.slice(0, 3).join(' | ')}`
-            : ((!entry.steps && !entry.caloriesOut) ? '\nNote: Google Health API v4 returned 0 records for this date. Make sure your Fitbit app is migrated/linked to your Google Account (smnyitus@gmail.com) and synced in the Fitbit phone app.' : '\n✓ Data received from Google Health API v4!');
-          dbg.textContent = summary + extra;
+          dbg.textContent = fullDiag;
         }
       }
 
