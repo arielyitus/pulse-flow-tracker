@@ -5417,8 +5417,8 @@
     // =================================================================
     // FITBIT WEB API OAUTH 2.0 PKCE + FULL TELEMETRY SYNC & CSV IMPORT
     // =================================================================
-    const FITBIT_AUTH_KEY = 'pulse_flow_fitbit_auth_v1';
-    const FITBIT_PKCE_VERIFIER_KEY = 'pulse_flow_fitbit_pkce_v1';
+    const FITBIT_AUTH_KEY = 'pulse_flow_fitbit_auth_v2';
+    const FITBIT_PKCE_VERIFIER_KEY = 'pulse_flow_fitbit_pkce_v2';
     const DEFAULT_GOOGLE_HEALTH_CLIENT_ID = '514028039061-9vjgnc9rlt0j4t50sqfvj1r2q658gc1h.apps.googleusercontent.com';
     let fitbitAuth = {
       clientId: DEFAULT_GOOGLE_HEALTH_CLIENT_ID,
@@ -5542,9 +5542,7 @@
         const gScopes = [
           'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
           'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
-          'https://www.googleapis.com/auth/googlehealth.sleep.readonly',
-          'https://www.googleapis.com/auth/googlehealth.profile.readonly',
-          'https://www.googleapis.com/auth/googlehealth.settings.readonly'
+          'https://www.googleapis.com/auth/googlehealth.sleep.readonly'
         ].join(' ');
 
         if (clientSecret) {
@@ -5584,6 +5582,21 @@
 
     async function initFitbitFromStorageAndUrl() {
       try {
+        // Revoke and purge any legacy v1 token that carried non-googlehealth scopes
+        const oldV1Raw = localStorage.getItem('pulse_flow_fitbit_auth_v1');
+        if (oldV1Raw) {
+          localStorage.removeItem('pulse_flow_fitbit_auth_v1');
+          try {
+            const oldV1 = JSON.parse(oldV1Raw);
+            if (oldV1 && oldV1.accessToken) {
+              await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(oldV1.accessToken)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+              });
+            }
+          } catch (e) {}
+        }
+
         const raw = localStorage.getItem(FITBIT_AUTH_KEY);
         if (raw) {
           fitbitAuth = { ...fitbitAuth, ...JSON.parse(raw) };
@@ -5768,33 +5781,30 @@
       };
       const debugNotes = [];
 
-      // Check Google Health identity endpoint on selectedDate
+      // Check Google Health identity & token scopes on selectedDate
       let identityInfo = '';
       if (dateStr === state.selectedDate) {
         try {
-          const idResp = await fetch('https://health.googleapis.com/v4/users/me/identity', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+          const [idResp, tiResp] = await Promise.all([
+            fetch('https://health.googleapis.com/v4/users/me/identity', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`)
+          ]);
           const idJson = await idResp.json().catch(() => null);
+          const tiJson = await tiResp.json().catch(() => null);
+          const scopeList = String(tiJson?.scope || '').split(' ').map(s => s.replace('https://www.googleapis.com/auth/', '')).filter(Boolean).join(',');
+
           if (idResp.ok && idJson) {
-            identityInfo = `Fitbit/Health ID: ${idJson.legacyUserId || idJson.healthUserId || 'Linked'}`;
-          } else if (idResp.status === 401 || (idResp.status === 403 && JSON.stringify(idJson || {}).includes('disallowed OAuth scope'))) {
-            // Token expired or contaminated with legacy fitness.* scopes — revoke and mint clean googlehealth.* token
-            if (idResp.status === 403 && token) {
-              try {
-                await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                });
-              } catch (e) {}
-            }
+            identityInfo = `Health ID: ${idJson.legacyUserId || idJson.healthUserId || 'Linked'}`;
+          } else if (idResp.status === 401) {
             fitbitAuth.accessToken = '';
             fitbitAuth.expiresAt = 0;
             localStorage.setItem(FITBIT_AUTH_KEY, JSON.stringify(fitbitAuth));
-            startFitbitOAuthFlow(false);
+            startFitbitOAuthFlow(true);
             return;
           } else {
-            identityInfo = `Identity HTTP ${idResp.status}: ${idJson?.error?.status || idJson?.error?.message || 'Unlinked'}`;
+            identityInfo = `Identity HTTP ${idResp.status}: ${idJson?.error?.message || idJson?.error?.status || 'Unlinked'} (Scopes: ${scopeList || 'none'})`;
           }
         } catch (e) {
           identityInfo = `Identity fetch error: ${e.message}`;
